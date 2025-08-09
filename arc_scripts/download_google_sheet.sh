@@ -1,11 +1,15 @@
 #!/bin/bash
 
+# need to pass gid (specific sheet)  $1, output name $2
 # CONFIGURATION
 KEY_FILE="/var/www/vhosts/dibs.mn/arc_scripts/dibsmn-2ba7c8a4b78e.json"
 SCOPES="https://www.googleapis.com/auth/drive.readonly"
 SHEET_ID="1ZYgPy1EFS8IFhKAhTqTa6Fppuyf8YJbxAP9u2_feSjw"
-GID="1030494426"
-OUTPUT_FILE="sheet.csv"
+# test sheet 1ZYgPy1EFS8IFhKAhTqTa6Fppuyf8YJbxAP9u2_feSjw
+# main 0
+# larson test 1030494426
+GID="$1"
+OUTPUT_FILE=$2
 
 # Check for dependencies
 command -v jq >/dev/null || { echo "Please install jq."; exit 1; }
@@ -56,9 +60,24 @@ fi
 
 echo "Access token obtained."
 
-# Download the Google Sheet as CSV
+# Download the Google Sheet as CSV (raw)
+TEMP_FILE=$(mktemp)
 curl -L -s -H "Authorization: Bearer $ACCESS_TOKEN" \
   "https://docs.google.com/spreadsheets/d/$SHEET_ID/export?format=csv&gid=$GID" \
-  -o "$OUTPUT_FILE"
+  -o "$TEMP_FILE"
 
-echo "Sheet downloaded to $OUTPUT_FILE"
+# Ensure every field (including header) is quoted and comma-delimited
+awk 'BEGIN{FS=","; OFS=","}
+{
+    sub(/\r$/, "")               # remove CR from CRLF if present
+    for (i=1; i<=NF; i++) {
+        gsub(/"/, "\"\"", $i)    # escape internal quotes
+        $i="\"" $i "\""          # wrap field in double quotes
+    }
+    $1=$1                        # force rebuild of the record using OFS
+    print
+}' "$TEMP_FILE" > "$OUTPUT_FILE"
+
+rm -f "$TEMP_FILE"
+echo "Sheet downloaded and quoted to $OUTPUT_FILE"
+
