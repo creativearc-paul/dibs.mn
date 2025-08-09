@@ -1,0 +1,109 @@
+/* Base Styles */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: system-ui, sans-serif;
+    line-height: 1.6;
+    background-color: #f4f4f4;
+    color: #333;
+}
+
+a {
+    color: #444;
+    text-decoration: none;
+}
+
+a:hover {
+    color: #000;
+}
+
+/* Container */
+.container {
+    width: 90%;
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+/* Header */
+header {
+    background-color: #e0e0e0;
+    padding: 1rem 0;
+    border-bottom: 1px solid #ccc;
+}
+
+.logo {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #222;
+}
+
+header .container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.nav-links {
+    list-style: none;
+    margin-top: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.nav-links li a {
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.nav-links li a:hover {
+    background-color: #d4d4d4;
+}
+
+/* Main */
+main {
+    padding: 2rem 0;
+}
+
+/* Footer */
+footer {
+    background-color: #ddd;
+    text-align: center;
+    padding: 1rem 0;
+    font-size: 0.9rem;
+    color: #555;
+    border-top: 1px solid #ccc;
+}
+
+
+.table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
+}
+
+.table-container table {
+    min-width: 800px; /* wider than most phones so it can scroll */
+    border-collapse: collapse;
+    width: 100%;
+    font-family: Arial, sans-serif;
+}
+
+
+/* Responsive Adjustments */
+@media (min-width: 600px) {
+    header .container {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .nav-links {
+        margin-top: 0;
+    }
+}
+

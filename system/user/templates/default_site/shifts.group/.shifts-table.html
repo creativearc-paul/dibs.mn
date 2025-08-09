@@ -4,10 +4,9 @@ show_future_entries="yes"
 show_expired="yes"
 author_id="{embed:theAuthorId}"}
 
-
-
 {if count == 1 }
-<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif;">
+<div class="table-container">
+    <table border="1" cellpadding="6" cellspacing="0">
     <thead style="background-color: #f2f2f2;">
     <tr>
         <th>Signup</th>
@@ -52,6 +51,7 @@ author_id="{embed:theAuthorId}"}
 
     </tbody>
 </table>
+</div>
 {/if}
 {/exp:channel:entries}
 
