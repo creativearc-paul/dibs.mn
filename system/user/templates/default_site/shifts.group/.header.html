@@ -1,13 +1,43 @@
 {exp:channel:entries channel="household" dynamic="no"
-    show_future_entries="yes"
-    show_expired="yes"
-    author_id="{embed:theAuthorId}"}
-        <h2>Shifts for {title} Household</h2>
-<div>
-    <h3>Shifts Required: {shifts_required}</h3>
-    <h3>Shifts Claimed: {exp:dibs:shifts_claimed author_id="{embed:theAuthorId}"}</h3>
-    <h3>Shifts Completed: </h3>
-    <p>Member ID: {embed:theAuthorId}</p>
-</div>
+    author_id="{embed:theAuthorId}" require_entry="yes" }
+{if '{embed:theAuthorId}' == 0}
+{!-- do nothing --}
+{if:else}
+        <h2>{title} Household</h2>
 
+<div class="summary" role="region" aria-labelledby="h">
+    <h2 id="h" style="margin:0 0 4px;">Shifts Snapshot</h2>
+
+    <!-- Values table -->
+    <table aria-describedby="h">
+        <tbody>
+        <tr><th>Shifts Required</th><td>{shifts_required}</td></tr>
+
+        <tr><th>Shifts Claimed</th><td>{exp:dibs:shifts_claimed author_id="{embed:theAuthorId}"}</td></tr>
+        <tr><th>Shifts Completed</th><td>3</td></tr>
+        </tbody>
+    </table>
+
+    <!-- Individual bars -->
+
+
+    <div>
+        <div class="label">Shifts Claimed ({exp:dibs:shifts_claimed author_id="{embed:theAuthorId}"} of {shifts_required})</div>
+        <div class="bar-wrap">
+            <div class="bar">
+                <span class="fill claimed" style="width: calc({exp:dibs:shifts_claimed author_id="{embed:theAuthorId}"}/{shifts_required}*100%)"></span>
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <div class="label">Shifts Completed (3 of {exp:dibs:shifts_claimed author_id="{embed:theAuthorId}"})</div>
+        <div class="bar-wrap">
+            <div class="bar">
+                <span class="fill completed" style="width: calc(3/{shifts_required}*100%)"></span>
+            </div>
+        </div>
+    </div>
+</div>
+{/if}
 {/exp:channel:entries}

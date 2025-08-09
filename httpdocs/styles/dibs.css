@@ -70,6 +70,22 @@ main {
     padding: 2rem 0;
 }
 
+/* Bar Graph Stuff */
+
+:root { --gap: 12px; --radius: 10px; --bg: #f5f5f5; --fg: #222; }
+body { font-family: system-ui, sans-serif; margin: 24px; color: var(--fg); }
+.summary { max-width: 520px; display: grid; gap: var(--gap); }
+table { width: 100%; border-collapse: collapse; background: white; border: 1px solid #ddd; }
+th, td { padding: 8px 10px; text-align: left; }
+tr:nth-child(even) td { background: #fafafa; }
+.bar-wrap { background: var(--bg); border: 1px solid #ddd; border-radius: var(--radius); padding: 4px; }
+.bar { height: 20px; background: #e0e0e0; border-radius: var(--radius); overflow: hidden; }
+.fill { height: 100%; display: block; border-radius: var(--radius); }
+.completed { background: #4caf50; }
+.claimed { background: #ffb300; }
+.required { background: #2196f3; }
+.label { font-size: 12px; margin-bottom: 4px; }
+
 /* Footer */
 footer {
     background-color: #ddd;
