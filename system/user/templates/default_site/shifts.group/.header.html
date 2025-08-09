@@ -11,10 +11,7 @@
     <!-- Values table -->
     <table aria-describedby="h">
         <tbody>
-        <tr><th>Shifts Required</th><td>{shifts_required}</td></tr>
-
-        <tr><th>Shifts Claimed</th><td>{exp:dibs:shifts_claimed author_id="{embed:theAuthorId}"}</td></tr>
-        <tr><th>Shifts Completed</th><td>3</td></tr>
+        <tr><th>Shifts Required</th><td><b>{shifts_required}</b></td></tr>
         </tbody>
     </table>
 
@@ -38,6 +35,7 @@
             </div>
         </div>
     </div>
+    <br>
 </div>
 {/if}
 {/exp:channel:entries}

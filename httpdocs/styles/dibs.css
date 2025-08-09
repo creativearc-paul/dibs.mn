@@ -47,6 +47,17 @@ header .container {
     align-items: center;
 }
 
+.site-title {
+    margin: 0;               /* headings have default margins */
+    font-size: clamp(1.5rem, 2.5vw, 2rem); /* still readable if image fails */
+}
+.visually-hidden {
+    position: absolute !important;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0);
+    white-space: nowrap; border: 0;
+}
 .nav-links {
     list-style: none;
     margin-top: 0.5rem;
