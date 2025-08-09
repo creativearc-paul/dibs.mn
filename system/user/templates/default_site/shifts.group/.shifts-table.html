@@ -1,0 +1,64 @@
+
+{exp:channel:entries channel="claimed_shifts" dynamic="no"
+show_future_entries="yes"
+show_expired="yes"
+author_id="{embed:theAuthorId}"}
+
+
+
+{if count == 1 }
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif;">
+    <thead style="background-color: #f2f2f2;">
+    <tr>
+        <th>Signup</th>
+        <th>StartTime</th>
+        <th>EndTime</th>
+        <th>Location</th>
+        <th>Qty</th>
+        <th>Item</th>
+        <th>First Name</th>
+        <th>Last Name</th>
+        <th>email</th>
+        <th>Sign Up Comment</th>
+        <th>Sign Up Date</th>
+        <th>Student Name</th>
+        <th>Item Comment</th>
+        <th>Student First Name</th>
+        <th>Student Last Name</th>
+    </tr>
+    </thead>
+    <tbody>
+    {/if}
+
+    <tr>
+        <td>{title}</td>
+        <td>{entry_date format="%m/%d/%y %g:%i %a"}</td>
+        <td>{expiration_date format="%m/%d/%y %g:%i %a"}</td>
+        <td>{claimed_location}</td>
+        <td>{claimed_qty}</td>
+        <td>{claimed_item}</td>
+        <td>{claimed_first_name}</td>
+        <td>{claimed_last_name}</td>
+        <td>{email}</td>
+        <td>{claimed_sign_up_comment}</td>
+        <td>{claimed_sign_up_timestamp format="%F %d %Y"}</td>
+        <td>{claimed_student_name}</td>
+        <td>{claimed_item_comment}</td>
+        <td>{claimed_studentfn}</td>
+        <td>{claimed_studentln}</td>
+    </tr>
+
+    {if count == total_results}
+
+    </tbody>
+</table>
+{/if}
+{/exp:channel:entries}
+
+<hr>
+<em>Last updated
+    {exp:query sql="SELECT last_run
+    FROM exp_datagrab LIMIT 1"}
+    {last_run  format="%m/%d/%y %g:%i %a"}
+    {/exp:query}
+</em>

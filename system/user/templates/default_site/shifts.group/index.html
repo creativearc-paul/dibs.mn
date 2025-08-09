@@ -1,0 +1,22 @@
+
+<h2>We will try a tag</h2>
+
+No way this works: {exp:dibs:get_author url_title="{segment_2}" channel_id="4"}
+
+{embed="shifts/.header" theAuthorId="{exp:dibs:get_author url_title='{segment_2}' channel_id='4'}"}
+
+
+
+
+<hr>
+{exp:query sql="select author_id as shift_author_id from exp_channel_titles
+where url_title = '{segment_2}' and channel_id = 4"}
+
+{if no_results}  <p>Please <a href="/member/login">login</a> or use your magic link!</p>  {/if}
+
+    {!-- embed table and pass the author id --}
+    {embed="shifts/.shifts-table" theAuthorId="{shift_author_id}"}
+
+{/exp:query}
+
+
