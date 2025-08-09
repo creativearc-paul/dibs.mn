@@ -1,14 +1,12 @@
 
-<h2>We will try a tag</h2>
-
-No way this works: {exp:dibs:get_author url_title="{segment_2}" channel_id="4"}
+{!-- ################# HEADER --}
 
 {embed="shifts/.header" theAuthorId="{exp:dibs:get_author url_title='{segment_2}' channel_id='4'}"}
 
-
-
-
 <hr>
+
+{!-- ################# TABLE --}
+
 {exp:query sql="select author_id as shift_author_id from exp_channel_titles
 where url_title = '{segment_2}' and channel_id = 4"}
 
