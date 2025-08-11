@@ -1,5 +1,13 @@
 {layout='layouts/_global-layout'}
 
+{if logged_in}
+    {if !segment_2}
+        {exp:channel:entries limit="1" author_id="CURRENT_USER"}
+            HELLO EID {entry_id} {url_title}
+                {redirect="/shifts/{url_title}"}
+        {/exp:channel:entries}
+    {/if}
+{/if}
 {!-- ################# HEADER --}
 
 {embed="shifts/.header" theAuthorId="{exp:dibs:get_author url_title='{segment_2}' channel_id='4'}"}

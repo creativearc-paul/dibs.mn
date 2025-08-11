@@ -76,6 +76,13 @@ header .container {
     background-color: #d4d4d4;
 }
 
+/* forms */
+
+input[type=button], input[type=submit], input[type=reset] {
+    padding: .25em !important;
+    margin: 1em 0 !important;
+}
+
 /* Main */
 main {
     padding: 2rem 0;
@@ -94,7 +101,7 @@ tr:nth-child(even) td { background: #fafafa; }
 .fill { height: 100%; display: block; border-radius: var(--radius); }
 .completed { background: #4caf50; }
 .claimed { background: #ffb300; }
-.required { background: #2196f3; }
+.required { background: #00942c7a; }
 .label { font-size: 12px; margin-bottom: 4px; }
 
 /* Footer */

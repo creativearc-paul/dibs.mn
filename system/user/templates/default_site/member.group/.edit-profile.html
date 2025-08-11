@@ -1,0 +1,129 @@
+<hr>
+
+<h3>Edit Profile</h3>
+
+
+{exp:channel:form channel="household" return="/member/success" url_title="{embed:profileUrlTitle}"}
+
+<fieldset>
+    <h4>Profile</h4>
+<p>
+<label for="title">Household</label>
+<input type="text" name="title" id="title" value="{title}" size="50" maxlength="100" onkeyup="liveUrlTitle(event);">
+</p>
+
+<p>
+<label for="url_title">Magic Link</label>
+<input type="text" name="url_title" id="url_title" value="{url_title}" maxlength="75" size="50">
+</p>
+
+
+{!-- not needed yet. Don't want shifts to be editable
+{custom_fields}
+<p>
+<label for="{field_name}">{if required}* {/if}{field_label}</label>
+</p>
+{field_instructions}
+
+{if error}
+<p class="error">{error}</p>
+{/if}
+
+
+{if text}
+<input type="text" dir="{text_direction}" id="{field_name}" name="{field_name}" value="{field_data}" maxlength="{maxlength}" size="50">
+{/if}
+
+{if grid}
+{display_field}
+{/if}
+
+{if multiselect}
+<select id="{field_name}" name="{field_name}[]" multiple="multiple">
+    {options}
+    <option value="{option_value}"{selected}>{option_name}</option>
+    {/options}
+</select>
+{/if}
+
+{/custom_fields}
+--}
+</fieldset>
+
+<input type="submit" name="submit" value="Submit">
+
+{/exp:channel:form}
+
+
+<h3>Edit Password</h3>
+
+{exp:member:edit_profile
+return="/member/success"
+include_assets="yes"
+inline_errors="yes"
+datepicker="yes"
+}
+
+<p>* Required fields</p>
+<fieldset>
+    <h4>Profile</h4>
+
+    <p>
+        <label for="username">Username*:</label><br />
+        <input type="text" name="username" id="username" value="{username}"/><br />
+        {if error:username}
+        <span class="error">{error:username}</span>
+        {/if}
+    </p>
+
+    <p>
+        <label for="email">Email:</label><br />
+        <input type="text" name="email" id="email" value="{email}"/><br />
+        {if error:email}
+        <span class="error">{error:email}</span>
+        {/if}
+    </p>
+
+    <p>
+        <label for="password">Password:</label><br />
+        <input type="password" name="password" id="password" value=""/>
+        {if error:password}
+        <span class="error">{error:password}</span>
+        {/if}
+    </p>
+
+    <p>
+        <label for="password_confirm">Confirm password*:</label><br />
+        <input type="password" name="password_confirm" id="password_confirm" value=""/>
+        {if error:password_confirm}
+        <span class="error">{error:password_confirm}</span>
+        {/if}
+    </p>
+
+    <p>
+        <label for="current_password">Current password*:</label><br />
+        <em>You <b>must</b> enter your current password to change your password, username or email.</em>
+        <input type="password" name="current_password" id="current_password" value=""/>
+        {if error:current_password}
+        <span class="error">{error:current_password}</span>
+        {/if}
+    </p>
+
+
+    {custom_profile_fields}
+    <p>
+        <label>{lang:profile_field}</label><br>
+        <small>{lang:profile_field_description}</small><br>
+
+        {form:custom_profile_field}
+
+        {if has_error}
+        <span class="error">{error}</span>
+        {/if}
+    </p>
+    {/custom_profile_fields}
+
+</fieldset>
+
+<input type="submit" value="Submit" class="btn btn-primary" />
+{/exp:member:edit_profile}

@@ -26,7 +26,19 @@
         </h1>        <nav>
             <ul class="nav-links">
                 <li><a href="/">Home</a></li>
-                <li><a href="#">Shifts</a></li>
+                <li><a href="/shifts/">Shifts</a></li>
+
+                <li>
+                    <a href="/member"><i class="fa-solid fa-user"></i> Profile</a>
+                </li>
+
+                <li>
+                {if logged_in}
+                <a href="{path='logout'}">Log Out</a>
+                {if:else}
+                <a href="{path='login'}">Login</a>
+                {/if}
+                </li>
             </ul>
         </nav>
     </div>
@@ -44,6 +56,8 @@
     <div class="container">
         <p>&copy; 2025 MySite. All rights reserved.</p>
     </div>
+
+    <script src="https://kit.fontawesome.com/1a08123cac.js" crossorigin="anonymous"></script>
 </footer>
 </body>
 </html>

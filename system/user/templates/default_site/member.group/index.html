@@ -1,29 +1,51 @@
-Hi {screen_name}
+{layout='layouts/_global-layout'}
+
+{if logged_in}
+Hi {screen_name}<br>
+<a href="{path='logout'}">Log Out</a>
 <hr>
-{exp:channel:entries channel="household" dynamic="no"}
+{/if}
+{exp:channel:entries channel="household" dynamic="no" author_id="CURRENT_USER"}
 
 {related_parent_guardian}
 {if related_parent_guardian:member_id == logged_in_member_id}
-Hi you are ID {logged_in_member_id}<br>
+
     <div class="{related_parent_guardian:switch="one|two"} id="row-{related_parent_guardian:count}>
         <b>{related_parent_guardian:screen_name}</b>
-        - Household: {title}
-        - {related_parent_guardian:member_id}
-        - Dibs Required: {shifts_required}
+
+<ul>
+    <li>Household: {title}</li>
+    <li>Member Id: {related_parent_guardian:member_id}</li>
+    <li>Dibs Required: {shifts_required}</li>
+</ul>
+
+
+
     </div>
+
+    {if student_athlete}
     <div>Athletes:
     <ul>
         {student_athlete}
         <li>{student_athlete:student_name}</li>
     {/student_athlete}
     </ul>
+    {/if}
     
-{if:else}
+    {if:else}
+        {!-- DO NOTHING --}
  {/if}
     
 {/related_parent_guardian}
 
+{if count == total_results}
+        {!-- show edit form --}
+        {embed="member/.edit-profile"
+            theAuthorId="{exp:dibs:get_author url_title='{url_title}' channel_id='4'}"
+            profileUrlTitle='{url_title}'}
+{/if}
 
 {/exp:channel:entries}
 <hr>
-<a href="{path='logout'}">Log Out</a>
+
+
