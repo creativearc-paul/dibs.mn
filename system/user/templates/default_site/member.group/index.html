@@ -1,30 +1,22 @@
 {layout='layouts/_global-layout'}
 
-{if logged_in}
-Hi {screen_name}<br>
-<a href="{path='logout'}">Log Out</a>
-<hr>
-{/if}
+ <h2><i class="fa-solid fa-house"></i> Your Household Profile</h2>
 {exp:channel:entries channel="household" dynamic="no" author_id="CURRENT_USER"}
+
+<h4><i class="fa-solid fa-user"></i> Parent/Guardians</h4>
+<ul>
+{related_parent_guardian}
+<li>{related_parent_guardian:screen_name}</li>
+{/related_parent_guardian}
+</ul>
 
 {related_parent_guardian}
 {if related_parent_guardian:member_id == logged_in_member_id}
 
-    <div class="{related_parent_guardian:switch="one|two"} id="row-{related_parent_guardian:count}>
-        <b>{related_parent_guardian:screen_name}</b>
-
-<ul>
-    <li>Household: {title}</li>
-    <li>Member Id: {related_parent_guardian:member_id}</li>
-    <li>Dibs Required: {shifts_required}</li>
-</ul>
-
-
-
-    </div>
 
     {if student_athlete}
-    <div>Athletes:
+<hr>
+    <h4><i class="fa-solid fa-user-graduate"></i> Student Athletes</h4>
     <ul>
         {student_athlete}
         <li>{student_athlete:student_name}</li>

@@ -1,14 +1,14 @@
 <hr>
 
-<h3>Edit Profile</h3>
+<h3>Household Name:</h3>
 
 
 {exp:channel:form channel="household" return="/member/success" url_title="{embed:profileUrlTitle}"}
 
 <fieldset>
-    <h4>Profile</h4>
+
 <p>
-<label for="title">Household</label>
+<label for="title">Name</label>
 <input type="text" name="title" id="title" value="{title}" size="50" maxlength="100" onkeyup="liveUrlTitle(event);">
 </p>
 
@@ -55,7 +55,7 @@
 {/exp:channel:form}
 
 
-<h3>Edit Password</h3>
+<h3>Edit Username and Password</h3>
 
 {exp:member:edit_profile
 return="/member/success"
