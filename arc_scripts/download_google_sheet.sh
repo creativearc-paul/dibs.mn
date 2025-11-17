@@ -1,29 +1,26 @@
 #!/bin/bash
 
-# need to pass gid (specific sheet)  $1, output name $2
+# Usage: ./download_sheet_as_tsv.sh <gid> <output.tsv>
+
 # CONFIGURATION
 KEY_FILE="/var/www/vhosts/dibs.mn/arc_scripts/dibsmn-2ba7c8a4b78e.json"
 SCOPES="https://www.googleapis.com/auth/drive.readonly"
-# (from 2024-2025) SHEET_ID="1ZYgPy1EFS8IFhKAhTqTa6Fppuyf8YJbxAP9u2_feSjw"
-# 2025-2026
 SHEET_ID="1JMwQjGqUE9QBb5vVrsfilmeNtWFva7QoPQ2ycbxWZqM"
-# test sheet 1ZYgPy1EFS8IFhKAhTqTa6Fppuyf8YJbxAP9u2_feSjw
-# main 0
-# larson test 1030494426
+
 GID="$1"
-OUTPUT_FILE=$2
+OUTPUT_FILE="$2"
 
-# Check for dependencies
-command -v jq >/dev/null || { echo "Please install jq."; exit 1; }
+# Check required tools
+command -v jq >/dev/null || { echo "jq not found"; exit 1; }
+command -v python3 >/dev/null || { echo "python3 not found"; exit 1; }
 
-# Parse service account details
+# Extract service account credentials
 ISS=$(jq -r .client_email "$KEY_FILE")
 PRIV_KEY_PATH=$(mktemp)
 jq -r .private_key "$KEY_FILE" > "$PRIV_KEY_PATH"
 
-# Create JWT header and payload
+# Generate JWT for OAuth 2.0
 HEADER_BASE64=$(echo -n '{"alg":"RS256","typ":"JWT"}' | openssl base64 -e -A | tr '+/' '-_' | tr -d '=')
-
 NOW=$(date +%s)
 EXP=$(($NOW + 3600))
 PAYLOAD=$(cat <<EOF
@@ -37,23 +34,17 @@ PAYLOAD=$(cat <<EOF
 EOF
 )
 PAYLOAD_BASE64=$(echo -n "$PAYLOAD" | openssl base64 -e -A | tr '+/' '-_' | tr -d '=')
-
-# Create the signature
 DATA_TO_SIGN="$HEADER_BASE64.$PAYLOAD_BASE64"
 SIGNATURE=$(echo -n "$DATA_TO_SIGN" | openssl dgst -sha256 -sign "$PRIV_KEY_PATH" | openssl base64 -e -A | tr '+/' '-_' | tr -d '=')
-
 JWT="$DATA_TO_SIGN.$SIGNATURE"
-
-# Clean up private key file
 rm -f "$PRIV_KEY_PATH"
 
-# Get access token
+# Request access token
 RESPONSE=$(curl -s -X POST -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=$JWT" \
   https://oauth2.googleapis.com/token)
 
 ACCESS_TOKEN=$(echo "$RESPONSE" | jq -r .access_token)
-
 if [ "$ACCESS_TOKEN" == "null" ] || [ -z "$ACCESS_TOKEN" ]; then
     echo "Failed to obtain access token"
     echo "$RESPONSE"
@@ -62,24 +53,23 @@ fi
 
 echo "Access token obtained."
 
-# Download the Google Sheet as CSV (raw)
-TEMP_FILE=$(mktemp)
+# Download sheet as CSV
+TEMP_CSV=$(mktemp)
 curl -L -s -H "Authorization: Bearer $ACCESS_TOKEN" \
   "https://docs.google.com/spreadsheets/d/$SHEET_ID/export?format=csv&gid=$GID" \
-  -o "$TEMP_FILE"
+  -o "$TEMP_CSV"
 
-# Ensure every field (including header) is quoted and comma-delimited
-awk 'BEGIN{FS=","; OFS=","}
-{
-    sub(/\r$/, "")               # remove CR from CRLF if present
-    for (i=1; i<=NF; i++) {
-        gsub(/"/, "\"\"", $i)    # escape internal quotes
-        $i="\"" $i "\""          # wrap field in double quotes
-    }
-    $1=$1                        # force rebuild of the record using OFS
-    print
-}' "$TEMP_FILE" > "$OUTPUT_FILE"
+# Convert CSV to TSV using Python
+python3 - <<EOF
+import csv
 
-rm -f "$TEMP_FILE"
-echo "Sheet downloaded and quoted to $OUTPUT_FILE"
+with open("$TEMP_CSV", newline='', encoding='utf-8') as csv_in, \
+     open("$OUTPUT_FILE", 'w', newline='', encoding='utf-8') as tsv_out:
+    reader = csv.reader(csv_in)
+    writer = csv.writer(tsv_out, delimiter='\t', quoting=csv.QUOTE_MINIMAL)
+    for row in reader:
+        writer.writerow(row)
+EOF
 
+rm -f "$TEMP_CSV"
+echo "✅ Sheet downloaded and converted to $OUTPUT_FILE"
