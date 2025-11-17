@@ -4,7 +4,9 @@
 # CONFIGURATION
 KEY_FILE="/var/www/vhosts/dibs.mn/arc_scripts/dibsmn-2ba7c8a4b78e.json"
 SCOPES="https://www.googleapis.com/auth/drive.readonly"
-SHEET_ID="1ZYgPy1EFS8IFhKAhTqTa6Fppuyf8YJbxAP9u2_feSjw"
+# (from 2024-2025) SHEET_ID="1ZYgPy1EFS8IFhKAhTqTa6Fppuyf8YJbxAP9u2_feSjw"
+# 2025-2026
+SHEET_ID="1JMwQjGqUE9QBb5vVrsfilmeNtWFva7QoPQ2ycbxWZqM"
 # test sheet 1ZYgPy1EFS8IFhKAhTqTa6Fppuyf8YJbxAP9u2_feSjw
 # main 0
 # larson test 1030494426
