@@ -10,7 +10,14 @@
 {/if}
 {!-- ################# HEADER --}
 
-{embed="shifts/.header" theAuthorId="{exp:dibs:get_author url_title='{segment_2}' channel_id='4'}"}
+
+
+{embed="shifts/.header"
+    theAuthorId="{exp:dibs:get_author url_title='{segment_2}' channel_id='4'}"
+
+    {!-- runs a total of entries owned by user in channel to get completed value --}
+    completedShifts="{exp:channel:entries channel='completed_shifts' dynamic='no' author_id='CURRENT_USER' show_expired='only'}{if count == total_results}{total_results}{/if}{/exp:channel:entries}"
+}
 
 <hr>
 
