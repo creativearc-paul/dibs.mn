@@ -71,5 +71,5 @@ with open("$TEMP_CSV", newline='', encoding='utf-8') as csv_in, \
         writer.writerow(row)
 EOF
 
-rm -f "$TEMP_CSV"
+#rm -f "$TEMP_CSV"
 echo "✅ Sheet downloaded and converted to $OUTPUT_FILE"
