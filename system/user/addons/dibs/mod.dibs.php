@@ -69,6 +69,7 @@ class Dibs
             ->select('SUM(d.field_id_17) AS shifts_claimed', false)
             ->from('exp_channel_data_field_17 d')
             ->join('exp_channel_titles t', 't.entry_id = d.entry_id', 'inner')
+            ->where('t.channel_id', 5)
             ->where_in('t.author_id', $author_ids)
             ->get()
             ->row_array();
@@ -78,6 +79,37 @@ class Dibs
             : '0';
 
         return $this->render_value($total, 'shifts_claimed');
+    }
+
+    /**
+     * shifts_completed
+     * - Sums exp_channel_data_field_17.field_id_17 for all entries authored by one or more authors
+     * - Accepts author_id="12|34|56" (pipe-delimited)
+     * - Or resolves via url_title (+ optional channel_id, default 4)
+     * - Tag pair exposes {shifts_completed}
+     */
+    public function shifts_completed()
+    {
+        $author_ids = $this->resolve_author_ids(); // array of ints
+
+        if (empty($author_ids)) {
+            return $this->render_value('0', 'shifts_completed');
+        }
+
+        $row = ee()->db
+            ->select('SUM(d.field_id_17) AS shifts_completed', false)
+            ->from('exp_channel_data_field_17 d')
+            ->join('exp_channel_titles t', 't.entry_id = d.entry_id', 'inner')
+            ->where('t.channel_id', 6)
+            ->where_in('t.author_id', $author_ids)
+            ->get()
+            ->row_array();
+
+        $total = ($row && $row['shifts_completed'] !== null)
+            ? (string) (int) $row['shifts_completed']
+            : '0';
+
+        return $this->render_value($total, 'shifts_completed');
     }
 
     /* ===========================
