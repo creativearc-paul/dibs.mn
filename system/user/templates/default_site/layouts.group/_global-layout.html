@@ -36,7 +36,7 @@
                 {if logged_in}
                 <a href="{path='logout'}">Log Out</a>
                 {if:else}
-                <a href="{path='login'}">Login</a>
+                <a href="{path='member/login'}">Login</a>
                 {/if}
                 </li>
             </ul>
@@ -54,7 +54,7 @@
 
 <footer>
     <div class="container">
-        <p>&copy; 2025 MySite. All rights reserved.</p>
+        <p>&copy; {current_time format="%Y"} Dibs.mn. All rights reserved.</p>
     </div>
 
     <script src="https://kit.fontawesome.com/1a08123cac.js" crossorigin="anonymous"></script>
