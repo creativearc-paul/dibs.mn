@@ -9,7 +9,9 @@ author_id="{embed:theAuthorId}"}
     <table border="1" cellpadding="6" cellspacing="0">
     <thead style="background-color: #f2f2f2;">
     <tr>
-        <th>Signup</th>
+        {!--
+        <th>Signup</th
+        --}
         <th>StartTime</th>
         <th>EndTime</th>
         <th>Location</th>
@@ -22,15 +24,16 @@ author_id="{embed:theAuthorId}"}
         <th>Sign Up Date</th>
         <th>Student Name</th>
         <th>Item Comment</th>
-        <th>Student First Name</th>
-        <th>Student Last Name</th>
+
     </tr>
     </thead>
     <tbody>
     {/if}
 
     <tr>
+        {!--
         <td>{title}</td>
+        --}
         <td>{entry_date format="%m/%d/%y %g:%i %a"}</td>
         <td>{expiration_date format="%m/%d/%y %g:%i %a"}</td>
         <td>{claimed_location}</td>
@@ -38,13 +41,14 @@ author_id="{embed:theAuthorId}"}
         <td>{claimed_item}</td>
         <td>{claimed_first_name}</td>
         <td>{claimed_last_name}</td>
-        <td>{email}</td>
+        <td>{if logged_in}{email}
+            {if:else}{email:replace find='/@.*/' replace='@...' regex='yes'}<a href="/member/login"><i class="fa-solid fa-lock"></i></a>{/if}</td>
         <td>{claimed_sign_up_comment}</td>
         <td>{claimed_sign_up_timestamp format="%F %d %Y"}</td>
-        <td>{claimed_student_name}</td>
+        <td>{if logged_in}{claimed_student_name}
+            {if:else}{claimed_student_name:limit characters='4' end_char='&#8230;'}<a href="/member/login"><i class="fa-solid fa-lock"></i></a>{/if}</td>
         <td>{claimed_item_comment}</td>
-        <td>{claimed_studentfn}</td>
-        <td>{claimed_studentln}</td>
+
     </tr>
 
     {if count == total_results}

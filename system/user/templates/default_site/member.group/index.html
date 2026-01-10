@@ -41,3 +41,36 @@
 <hr>
 
 
+{layout:set:append name='javascript'}
+
+<script>
+    $(function () {
+        const baseUrl = 'https://dibs.mn/shifts/';
+
+        function updateUrl() {
+            const slug = $('#url_title').val().trim();
+            const url  = baseUrl + slug;
+
+            $('#generated_url')
+                .attr('href', url)
+                .text(url);
+        }
+
+        $('#copy_url').on('click', function (e) {
+            e.preventDefault();
+
+            const url = $('#generated_url').attr('href');
+
+            navigator.clipboard.writeText(url).then(function () {
+                $('#copy_status').show();
+                setTimeout(() => $('#copy_status').hide(), 1500);
+            });
+        });
+
+        updateUrl();
+        $('#url_title').on('input', updateUrl);
+    });
+</script>
+
+
+{/layout:set:append}

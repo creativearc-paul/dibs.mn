@@ -1,6 +1,6 @@
 <hr>
 
-<h3>Household Name:</h3>
+<h3>Edit Household Name:</h3>
 
 
 {exp:channel:form channel="household" return="/member/success" url_title="{embed:profileUrlTitle}"}
@@ -17,6 +17,14 @@
 <input type="text" name="url_title" id="url_title" value="{url_title}" maxlength="75" size="50">
 </p>
 
+
+    <p id="url_display"><br>
+        <b>Your magic link can be bookmarked and accessed without a password.</b>
+        <br> Your current magic link is:
+        <a id="generated_url" href="#" target="_blank"></a>
+        <a href="#" id="copy_url"><i class="fa-solid fa-copy"></i></a>
+        <span id="copy_status" style="display:none; margin-left:6px;">Copied!</span>
+    </p>
 
 {!-- not needed yet. Don't want shifts to be editable
 {custom_fields}
