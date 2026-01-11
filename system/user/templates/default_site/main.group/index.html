@@ -1,0 +1,80 @@
+{layout='layouts/_global-layout'}
+
+<div class="welcome">
+
+    <h2>Welcome to Dibs.mn!</h2>
+    <p>
+        Dibs.mn is a simple tool for <b>WLHS parents</b> to check their volunteer shift status.
+    </p>
+    <p><br>
+        To get started, log in using the <b>email address you used when you claimed your shift</b>. Once logged in, visit your <b>Shifts</b> page to see your completed shifts and totals at a glance.
+    </p>
+    <p><br>
+        For even easier access, head to your <b>Profile</b> and set up a <b>Magic Link</b>. You can bookmark this link to view your totals anytime—no password required.
+    </p>
+
+    <p><br>
+        Thanks for volunteering and supporting WLHS!
+    </p>
+
+{if logged_out}
+<br><hr><br>
+<h1>Login</h1>
+
+
+{exp:member:login_form return="/shifts" inline_errors="yes"}
+
+{if error:general}
+<div class="error">{error:general}</div>
+{/if}
+
+<div class="formGroup">
+    <div class="formField">
+        <label for="username">Username </label>
+        <div>
+            <input type="text" id="username" name="username" value="{if old:username}{old:username}{/if}" maxlength="32" size="25" required="required">
+            {if error:username}
+            <div class="error">{error:username}</div>
+            {/if}
+        </div>
+    </div>
+</div>
+
+<div class="formGroup">
+    <div class="formField">
+        <label   for="password">Password</label>
+        <div>
+            <input type="password" id="password" name="password" value="" maxlength="32" size="25" required="required">
+            {if error:password}
+            <div class="error">{error:password}</div>
+            {/if}
+        </div>
+    </div>
+</div>
+
+{if auto_login}
+<div class="formGroup">
+    <div class="formField">
+        <div></div>
+        <fieldset>
+            <legend class="visuallyHidden">Options</legend>
+            <input type="checkbox" id="auto_login" name="auto_login" value="1" class="customCheckbox"> <label for="auto_login">Auto-login on future visits</label>
+        </fieldset>
+    </div>
+</div>
+{/if}
+
+<div class="formButtonsWrapper">
+    <input type="submit" name="submit" value="Submit" class="button">
+</div>
+
+<div class="memberFormAdditionalLinks">
+    <i class="fa-solid fa-arrow-right-from-bracket"></i> <a href="{path='member/forgot-password'}">Forgot password?</a><br>
+    <i class="fa-solid fa-arrow-right-from-bracket"></i> <a href="{path='member/forgot-username'}">Forgot username?</a>
+</div>
+
+{/exp:member:login_form}
+
+{/if}
+
+</div>
