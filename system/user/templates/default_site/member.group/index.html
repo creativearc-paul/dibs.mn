@@ -1,14 +1,20 @@
 {layout='layouts/_global-layout'}
 
  <h2><i class="fa-solid fa-house"></i> Your Household Profile</h2>
+
+<div><br></div>
+
+
 {exp:channel:entries channel="household" dynamic="no" author_id="CURRENT_USER"}
 
-<h4><i class="fa-solid fa-user"></i> Parent/Guardians</h4>
+<h4><i class="fa-solid fa-user"></i> Parent/Guardians Volunteers</h4>
 <ul class="parentList">
 {related_parent_guardian}
 <li>{related_parent_guardian:screen_name}</li>
 {/related_parent_guardian}
 </ul>
+
+<div><br></div>
 
 {related_parent_guardian}
 {if related_parent_guardian:member_id == logged_in_member_id}

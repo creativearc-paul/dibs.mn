@@ -8,9 +8,9 @@ url_title='{segment_2}' require_entry="yes" }
 
 {if logged_in}
     {if !segment_2}
-        {exp:channel:entries limit="1" author_id="CURRENT_USER"}
-            HELLO EID {entry_id} {url_title}
-                {redirect="/shifts/{url_title}"}
+        {exp:channel:entries channel="household" dynamic="no" author_id="CURRENT_USER"}
+           EID {entry_id} {url_title}
+              {redirect="/shifts/{url_title}"}
         {/exp:channel:entries}
     {/if}
 {/if}

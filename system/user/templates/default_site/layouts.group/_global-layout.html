@@ -46,12 +46,13 @@
         </h1>        <nav>
             <ul class="nav-links">
                 <li><a href="/">Home</a></li>
+                {if logged_in}
                 <li><a href="/shifts/">Shifts</a></li>
 
                 <li>
                     <a href="/member"><i class="fa-solid fa-user"></i> Profile</a>
                 </li>
-
+                {/if}
                 <li>
                 {if logged_in}
                 <a href="{path='logout'}">Log Out</a>
