@@ -1,5 +1,11 @@
 {layout='layouts/_global-layout'}
 
+
+{exp:channel:entries channel="household" dynamic="no"
+author_id="{embed:theAuthorId}" require_entry="yes" }
+    {layout:set name='title'} - {title}{/layout:set}
+{/exp:channel:entries}
+
 {if logged_in}
     {if !segment_2}
         {exp:channel:entries limit="1" author_id="CURRENT_USER"}
