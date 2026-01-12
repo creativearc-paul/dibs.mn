@@ -4,7 +4,7 @@
 {exp:channel:entries channel="household" dynamic="no" author_id="CURRENT_USER"}
 
 <h4><i class="fa-solid fa-user"></i> Parent/Guardians</h4>
-<ul>
+<ul class="parentList">
 {related_parent_guardian}
 <li>{related_parent_guardian:screen_name}</li>
 {/related_parent_guardian}
@@ -41,7 +41,8 @@
 <hr>
 
 
-{layout:set:append name='javascript'}
+
+{layout:set name="javascript"}
 
 <script>
     $(function () {
@@ -73,4 +74,4 @@
 </script>
 
 
-{/layout:set:append}
+{/layout:set}

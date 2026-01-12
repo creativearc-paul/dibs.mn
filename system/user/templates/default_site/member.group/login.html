@@ -3,6 +3,12 @@
 <hr>
    <h1>Login</h1>
 
+    {if segment_3 == 'forgot-password'}
+    <p>If this email address is associated with an account, an email containing a password reset link has been emailed to you.</p>
+    <p>For security reasons, we cannot confirm if this email address matches an existing account.</p>
+    {/if}
+
+
     {if segment_3 == 'forgot-username'}
         <p>If this email address is associated with an account, an email containing your username has just been emailed to you.</p>
         <p>For security reasons, we cannot confirm if this email address matches an existing account.</p>
@@ -57,7 +63,7 @@
 
         <div class="memberFormAdditionalLinks">
             <i class="fa-solid fa-arrow-right-from-bracket"></i> <a href="{path='member/forgot-password'}">Forgot password?</a><br>
-            <i class="fa-solid fa-arrow-right-from-bracket"></i> <a href="{path='member/forgot-username'}">Forgot username?</a>
+            {!--<i class="fa-solid fa-arrow-right-from-bracket"></i> <a href="{path='member/forgot-username'}">Forgot username?</a>--}
         </div>
 
     {/exp:member:login_form}

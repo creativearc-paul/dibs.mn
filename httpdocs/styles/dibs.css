@@ -16,6 +16,10 @@ fieldset {
     padding: 0.5em 1em ;
 }
 
+ul.parentList {
+    padding-left: 40px;
+}
+
 a {
     color: #0000ff;
     text-decoration: none;
