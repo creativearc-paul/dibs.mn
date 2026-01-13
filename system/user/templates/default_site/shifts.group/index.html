@@ -13,27 +13,32 @@ url_title='{segment_2}' require_entry="yes" }
               {redirect="/shifts/{url_title}"}
         {/exp:channel:entries}
     {/if}
+
 {/if}
-{!-- ################# HEADER --}
+
+{if segment_2}
+
+    {!-- ################# HEADER --}
+
+    {embed="shifts/.header"
+        theAuthorId="{exp:dibs:get_author url_title='{segment_2}' channel_id='4'}"
+    }
 
 
+    <hr>
 
-{embed="shifts/.header"
-    theAuthorId="{exp:dibs:get_author url_title='{segment_2}' channel_id='4'}"
-}
+    {!-- ################# TABLE --}
 
-<hr>
+    {exp:query sql="select author_id as shift_author_id from exp_channel_titles
+    where url_title = '{segment_2}' and channel_id = 4"}
 
-{!-- ################# TABLE --}
+    {if no_results}  No shift data currently available. {/if}
 
-{exp:query sql="select author_id as shift_author_id from exp_channel_titles
-where url_title = '{segment_2}' and channel_id = 4"}
+        {!-- embed table and pass the author id --}
+        {embed="shifts/.shifts-table" theAuthorId="{shift_author_id}"}
 
-{if no_results}  No shift data currently available. {/if}
+    {/exp:query}
 
-    {!-- embed table and pass the author id --}
-    {embed="shifts/.shifts-table" theAuthorId="{shift_author_id}"}
-
-{/exp:query}
-
-
+{if:else}
+<p>Please contact the Dibs adminstrator to make sure your Household is setup.</p>
+{/if}

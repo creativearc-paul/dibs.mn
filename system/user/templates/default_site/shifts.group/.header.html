@@ -1,9 +1,12 @@
 {exp:channel:entries channel="household" dynamic="no"
-    author_id="{embed:theAuthorId}" require_entry="yes" }
-{if '{embed:theAuthorId}' == 0}
-{!-- do nothing --}
+author_id="{embed:theAuthorId}" require_entry="yes" }
+{if '{embed:theAuthorId}' == 1}
+    {if count == total_results}
+    <p>Please contact the Dibs adminstrator to make sure your Household is setup.</p>
+    {/if}
+    {!-- do nothing --}
 {if:else}
-        <h2>{title} Household</h2>
+<h2>{title} Household</h2>
 
 <div class="summary" role="region" aria-labelledby="h">
     <h3 id="h" style="margin:0 0 4px;">Shifts Snapshot</h3>

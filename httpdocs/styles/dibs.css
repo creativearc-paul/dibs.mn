@@ -129,6 +129,16 @@ tr:nth-child(even) td { background: #fafafa; }
 .required { background: #00942c7a; }
 .label { font-size: 12px; margin-bottom: 4px; }
 
+#url_display i.fa-wand-magic-sparkles {
+    color: #00942c !important;
+
+    padding: 0.25em !important;
+    margin-right: .5em !important;
+    border-radius: 0.25em  !important;
+    font-size: 150%;
+}
+
+
 /* Footer */
 footer {
     background-color: #ddd;
@@ -150,6 +160,74 @@ footer {
     border-collapse: collapse;
     width: 100%;
     font-family: Arial, sans-serif;
+}
+
+/* =========================
+   Global Form Enhancements
+   ========================= */
+
+/* Labels */
+.formGroup label {
+    font-size: 1rem;            /* ~16px */
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+    display: inline-block;
+}
+
+/* Text & password inputs */
+.formGroup input[type="text"],
+.formGroup input[type="password"],
+.formGroup input[type="email"],
+.formGroup input[type="tel"],
+.formGroup input[type="number"],
+.formGroup select,
+.formGroup textarea {
+    font-size: 1.05rem;         /* ~17px */
+    padding: 0.6rem 0.75rem;    /* vertical | horizontal */
+    line-height: 1.4;
+    width: 100%;
+    max-width: 420px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+/* Improve focus visibility */
+.formGroup input:focus,
+.formGroup select:focus,
+.formGroup textarea:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+/* Checkbox + label */
+.formGroup input[type="checkbox"] {
+    transform: scale(1.15);
+    margin-right: 0.4rem;
+}
+
+.formGroup fieldset label {
+    font-size: 0.95rem;
+}
+
+/* Spacing between form groups */
+.formGroup {
+    margin-bottom: 1rem;
+}
+
+/* Submit button */
+.formButtonsWrapper input[type="submit"],
+.formButtonsWrapper .button {
+    font-size: 1.05rem;
+    padding: 0.6rem 1.25rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Small helper text / links */
+.memberFormAdditionalLinks {
+    font-size: 0.95rem;
+    margin-top: 0.75rem;
 }
 
 
