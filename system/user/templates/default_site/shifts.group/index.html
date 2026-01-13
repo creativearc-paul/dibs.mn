@@ -9,8 +9,16 @@ url_title='{segment_2}' require_entry="yes" }
 {if logged_in}
     {if !segment_2}
         {exp:channel:entries channel="household" dynamic="no" author_id="CURRENT_USER"}
-           EID {entry_id} {url_title}
-              {redirect="/shifts/{url_title}"}
+
+
+        <p>Redirecting you to your shifts…</p>
+
+        <script>
+            setTimeout(function () {
+                window.location.href = "/shifts/{url_title}";
+            }, 3000); // 3 seconds
+        </script>
+
         {/exp:channel:entries}
     {/if}
 
@@ -40,5 +48,5 @@ url_title='{segment_2}' require_entry="yes" }
     {/exp:query}
 
 {if:else}
-<p>Please contact the Dibs adminstrator to make sure your Household is setup.</p>
+<p>Please contact the Dibs administrator to make sure your Household is setup.</p>
 {/if}
