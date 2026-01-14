@@ -102,6 +102,7 @@ class Dibs
             ->join('exp_channel_titles t', 't.entry_id = d.entry_id', 'inner')
             ->where('t.channel_id', 6)
             ->where_in('t.author_id', $author_ids)
+            ->where('t.entry_date <=', ee()->localize->now)
             ->get()
             ->row_array();
 
