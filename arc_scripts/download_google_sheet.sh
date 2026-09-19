@@ -5,7 +5,7 @@
 # CONFIGURATION
 KEY_FILE="/var/www/vhosts/dibs.mn/arc_scripts/dibsmn-2ba7c8a4b78e.json"
 SCOPES="https://www.googleapis.com/auth/drive.readonly"
-SHEET_ID="1JMwQjGqUE9QBb5vVrsfilmeNtWFva7QoPQ2ycbxWZqM"
+SHEET_ID="1et-lodIN-lFQEudKEJtX0DHM-cLa63OhsSuYDL0QgU0"
 
 GID="$1"
 OUTPUT_FILE="$2"
@@ -55,21 +55,49 @@ echo "Access token obtained."
 
 # Download sheet as CSV
 TEMP_CSV=$(mktemp)
-curl -L -s -H "Authorization: Bearer $ACCESS_TOKEN" \
+HTTP_CODE=$(curl -L -s -w '%{http_code}' -H "Authorization: Bearer $ACCESS_TOKEN" \
   "https://docs.google.com/spreadsheets/d/$SHEET_ID/export?format=csv&gid=$GID" \
-  -o "$TEMP_CSV"
+  -o "$TEMP_CSV")
 
-# Convert CSV to TSV using Python
-python3 - <<EOF
+# A missing gid or revoked access returns an HTML error page. Without this check
+# the page gets converted to TSV and imported as if it were data.
+if [ "$HTTP_CODE" != "200" ]; then
+    echo "❌ Export failed: HTTP $HTTP_CODE (sheet $SHEET_ID, gid $GID)"
+    echo "   $OUTPUT_FILE left unchanged."
+    rm -f "$TEMP_CSV"
+    exit 1
+fi
+
+if head -c 200 "$TEMP_CSV" | grep -qi '<!DOCTYPE html\|<html'; then
+    echo "❌ Export returned HTML, not CSV (sheet $SHEET_ID, gid $GID)"
+    echo "   $OUTPUT_FILE left unchanged."
+    rm -f "$TEMP_CSV"
+    exit 1
+fi
+
+# Convert CSV to TSV using Python, writing beside the target so a failure
+# part-way through leaves the existing file intact.
+TEMP_TSV="$OUTPUT_FILE.tmp.$$"
+python3 - <<EOF || { echo "❌ Conversion failed; $OUTPUT_FILE left unchanged."; rm -f "$TEMP_TSV"; exit 1; }
 import csv
 
+kept = dropped = 0
 with open("$TEMP_CSV", newline='', encoding='utf-8') as csv_in, \
-     open("$OUTPUT_FILE", 'w', newline='', encoding='utf-8') as tsv_out:
+     open("$TEMP_TSV", 'w', newline='', encoding='utf-8') as tsv_out:
     reader = csv.reader(csv_in)
     writer = csv.writer(tsv_out, delimiter='\t', quoting=csv.QUOTE_MINIMAL)
-    for row in reader:
+    for i, row in enumerate(reader):
+        # Formulas filled down past the last sign-up export as blank rows.
+        if i > 0 and not (row and row[0].strip()):
+            dropped += 1
+            continue
         writer.writerow(row)
+        kept += 1
+print("   rows written: %d (incl header), blank rows dropped: %d" % (kept, dropped))
 EOF
+
+chmod 644 "$TEMP_TSV"
+mv "$TEMP_TSV" "$OUTPUT_FILE"
 
 #rm -f "$TEMP_CSV"
 echo "✅ Sheet downloaded and converted to $OUTPUT_FILE"
