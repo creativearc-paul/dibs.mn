@@ -17,10 +17,9 @@ use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Converter\NumberConverterInterfac
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Converter\TimeConverterInterface;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Uuid as BaseUuid;
 /**
- * Nonstandard\Uuid is a UUID that doesn't conform to RFC 9562 (formerly RFC 4122)
+ * Nonstandard\Uuid is a UUID that doesn't conform to RFC 4122
  *
- * @immutable
- * @pure
+ * @psalm-immutable
  */
 final class Uuid extends BaseUuid
 {

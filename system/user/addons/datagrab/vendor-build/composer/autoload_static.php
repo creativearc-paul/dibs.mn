@@ -4,12 +4,12 @@
 
 namespace Composer\Autoload;
 
-class ComposerStaticInit01648e50df43d746557bb6e6e7a02dfa
+class ComposerStaticInit73bde507af3273efa71edb1cc8a00f1a
 {
     public static $files = array (
         '0e6d7bf4a5811bfa5cf40c5ccd6fae6a' => __DIR__ . '/..' . '/symfony/polyfill-mbstring/bootstrap.php',
-        '6e3fae29631ef280660b3cdad06f25a8' => __DIR__ . '/..' . '/symfony/deprecation-contracts/function.php',
         'a4a119a56e50fbb293281d9a48007e0e' => __DIR__ . '/..' . '/symfony/polyfill-php80/bootstrap.php',
+        '6e3fae29631ef280660b3cdad06f25a8' => __DIR__ . '/..' . '/symfony/deprecation-contracts/function.php',
         '60799491728b879e74601d83e38b2cad' => __DIR__ . '/..' . '/illuminate/collections/helpers.php',
         'a1105708a18b76903365ca1c4aa61b02' => __DIR__ . '/..' . '/symfony/translation/Resources/functions.php',
         '72579e7bd17821bb1321b87411366eae' => __DIR__ . '/..' . '/illuminate/support/helpers.php',
@@ -18,19 +18,17 @@ class ComposerStaticInit01648e50df43d746557bb6e6e7a02dfa
         'e69f7f6ee287b969198c3c9d6777bd38' => __DIR__ . '/..' . '/symfony/polyfill-intl-normalizer/bootstrap.php',
         '0d59ee240a4cd96ddbb4ff164fccea4d' => __DIR__ . '/..' . '/symfony/polyfill-php73/bootstrap.php',
         'b6b991a57620e2fb6b2f66f03fe9ddc2' => __DIR__ . '/..' . '/symfony/string/Resources/functions.php',
-        '72142d7b40a3a0b14e91825290b5ad82' => __DIR__ . '/..' . '/cakephp/core/functions.php',
-        '948ad5488880985ff1c06721a4e447fe' => __DIR__ . '/..' . '/cakephp/utility/bootstrap.php',
+        '23c18046f52bef3eea034657bafda50f' => __DIR__ . '/..' . '/symfony/polyfill-php81/bootstrap.php',
         '538ca81a9a966a6716601ecf48f4eaef' => __DIR__ . '/..' . '/opis/closure/functions.php',
         'e39a8b23c42d4e1452234d762b03835a' => __DIR__ . '/..' . '/ramsey/uuid/src/functions.php',
         'ef65a1626449d89d0811cf9befce46f0' => __DIR__ . '/..' . '/illuminate/events/functions.php',
-        '9e4824c5afbdc1482b6025ce3d4dfde8' => __DIR__ . '/..' . '/league/csv/src/functions_include.php',
     );
 
     public static $prefixLengthsPsr4 = array (
         'B' => 
         array (
-            'BoldMinded\\DataGrab\\FieldTypes\\' => 31,
             'BoldMinded\\DataGrab\\Dependency\\voku\\' => 36,
+            'BoldMinded\\DataGrab\\Dependency\\Symfony\\Polyfill\\Php81\\' => 54,
             'BoldMinded\\DataGrab\\Dependency\\Symfony\\Polyfill\\Php80\\' => 54,
             'BoldMinded\\DataGrab\\Dependency\\Symfony\\Polyfill\\Php73\\' => 54,
             'BoldMinded\\DataGrab\\Dependency\\Symfony\\Polyfill\\Mbstring\\' => 57,
@@ -50,8 +48,6 @@ class ComposerStaticInit01648e50df43d746557bb6e6e7a02dfa
             'BoldMinded\\DataGrab\\Dependency\\Psr\\Container\\' => 45,
             'BoldMinded\\DataGrab\\Dependency\\Opis\\Closure\\' => 44,
             'BoldMinded\\DataGrab\\Dependency\\Litzinger\\Basee\\' => 47,
-            'BoldMinded\\DataGrab\\Dependency\\League\\Csv\\' => 42,
-            'BoldMinded\\DataGrab\\Dependency\\League\\Container\\' => 48,
             'BoldMinded\\DataGrab\\Dependency\\Laravel\\SerializableClosure\\' => 59,
             'BoldMinded\\DataGrab\\Dependency\\Illuminate\\Support\\' => 50,
             'BoldMinded\\DataGrab\\Dependency\\Illuminate\\Redis\\' => 48,
@@ -66,23 +62,20 @@ class ComposerStaticInit01648e50df43d746557bb6e6e7a02dfa
             'BoldMinded\\DataGrab\\Dependency\\Illuminate\\Bus\\' => 46,
             'BoldMinded\\DataGrab\\Dependency\\Doctrine\\Inflector\\' => 50,
             'BoldMinded\\DataGrab\\Dependency\\Carbon\\' => 38,
-            'BoldMinded\\DataGrab\\Dependency\\Cake\\Utility\\' => 44,
-            'BoldMinded\\DataGrab\\Dependency\\Cake\\Core\\' => 41,
             'BoldMinded\\DataGrab\\Dependency\\Brick\\Math\\' => 42,
             'BoldMinded\\DataGrab\\Dependency\\Bamarni\\Composer\\Bin\\' => 52,
-            'BoldMinded\\DataGrab\\DataTypes\\' => 30,
             'BoldMinded\\DataGrab\\' => 20,
         ),
     );
 
     public static $prefixDirsPsr4 = array (
-        'BoldMinded\\DataGrab\\FieldTypes\\' => 
-        array (
-            0 => __DIR__ . '/../../../..' . '/addons/datagrab/fieldtypes',
-        ),
         'BoldMinded\\DataGrab\\Dependency\\voku\\' => 
         array (
             0 => __DIR__ . '/..' . '/voku/portable-ascii/src/voku',
+        ),
+        'BoldMinded\\DataGrab\\Dependency\\Symfony\\Polyfill\\Php81\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/symfony/polyfill-php81',
         ),
         'BoldMinded\\DataGrab\\Dependency\\Symfony\\Polyfill\\Php80\\' => 
         array (
@@ -160,14 +153,6 @@ class ComposerStaticInit01648e50df43d746557bb6e6e7a02dfa
         array (
             0 => __DIR__ . '/..' . '/litzinger/basee/src',
         ),
-        'BoldMinded\\DataGrab\\Dependency\\League\\Csv\\' => 
-        array (
-            0 => __DIR__ . '/..' . '/league/csv/src',
-        ),
-        'BoldMinded\\DataGrab\\Dependency\\League\\Container\\' => 
-        array (
-            0 => __DIR__ . '/..' . '/league/container/src',
-        ),
         'BoldMinded\\DataGrab\\Dependency\\Laravel\\SerializableClosure\\' => 
         array (
             0 => __DIR__ . '/..' . '/laravel/serializable-closure/src',
@@ -226,14 +211,6 @@ class ComposerStaticInit01648e50df43d746557bb6e6e7a02dfa
         array (
             0 => __DIR__ . '/..' . '/nesbot/carbon/src/Carbon',
         ),
-        'BoldMinded\\DataGrab\\Dependency\\Cake\\Utility\\' => 
-        array (
-            0 => __DIR__ . '/..' . '/cakephp/utility',
-        ),
-        'BoldMinded\\DataGrab\\Dependency\\Cake\\Core\\' => 
-        array (
-            0 => __DIR__ . '/..' . '/cakephp/core',
-        ),
         'BoldMinded\\DataGrab\\Dependency\\Brick\\Math\\' => 
         array (
             0 => __DIR__ . '/..' . '/brick/math/src',
@@ -241,10 +218,6 @@ class ComposerStaticInit01648e50df43d746557bb6e6e7a02dfa
         'BoldMinded\\DataGrab\\Dependency\\Bamarni\\Composer\\Bin\\' => 
         array (
             0 => __DIR__ . '/..' . '/bamarni/composer-bin-plugin/src',
-        ),
-        'BoldMinded\\DataGrab\\DataTypes\\' => 
-        array (
-            0 => __DIR__ . '/../../../..' . '/addons/datagrab/datatypes',
         ),
         'BoldMinded\\DataGrab\\' => 
         array (
@@ -257,6 +230,7 @@ class ComposerStaticInit01648e50df43d746557bb6e6e7a02dfa
         'BoldMinded\\DataGrab\\Dependency\\JsonException' => __DIR__ . '/..' . '/symfony/polyfill-php73/Resources/stubs/JsonException.php',
         'BoldMinded\\DataGrab\\Dependency\\Normalizer' => __DIR__ . '/..' . '/symfony/polyfill-intl-normalizer/Resources/stubs/Normalizer.php',
         'BoldMinded\\DataGrab\\Dependency\\PhpToken' => __DIR__ . '/..' . '/symfony/polyfill-php80/Resources/stubs/PhpToken.php',
+        'BoldMinded\\DataGrab\\Dependency\\ReturnTypeWillChange' => __DIR__ . '/..' . '/symfony/polyfill-php81/Resources/stubs/ReturnTypeWillChange.php',
         'BoldMinded\\DataGrab\\Dependency\\Stringable' => __DIR__ . '/..' . '/symfony/polyfill-php80/Resources/stubs/Stringable.php',
         'BoldMinded\\DataGrab\\Dependency\\UnhandledMatchError' => __DIR__ . '/..' . '/symfony/polyfill-php80/Resources/stubs/UnhandledMatchError.php',
         'BoldMinded\\DataGrab\\Dependency\\ValueError' => __DIR__ . '/..' . '/symfony/polyfill-php80/Resources/stubs/ValueError.php',
@@ -266,9 +240,9 @@ class ComposerStaticInit01648e50df43d746557bb6e6e7a02dfa
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
-            $loader->prefixLengthsPsr4 = ComposerStaticInit01648e50df43d746557bb6e6e7a02dfa::$prefixLengthsPsr4;
-            $loader->prefixDirsPsr4 = ComposerStaticInit01648e50df43d746557bb6e6e7a02dfa::$prefixDirsPsr4;
-            $loader->classMap = ComposerStaticInit01648e50df43d746557bb6e6e7a02dfa::$classMap;
+            $loader->prefixLengthsPsr4 = ComposerStaticInit73bde507af3273efa71edb1cc8a00f1a::$prefixLengthsPsr4;
+            $loader->prefixDirsPsr4 = ComposerStaticInit73bde507af3273efa71edb1cc8a00f1a::$prefixDirsPsr4;
+            $loader->classMap = ComposerStaticInit73bde507af3273efa71edb1cc8a00f1a::$classMap;
 
         }, null, ClassLoader::class);
     }

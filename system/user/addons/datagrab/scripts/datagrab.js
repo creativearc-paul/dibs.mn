@@ -185,28 +185,4 @@ $(function () {
             }
         });
     });
-
-    $sortableTable = $('.table-sortable');
-
-    $sortableTable.sortable({
-        axis: 'y',  // Only allow vertical dragging
-        handle: '.handle', // Set drag handle
-        items: 'tr', // Only allow these to be sortable
-        sort: EE.sortable_sort_helper,
-        forcePlaceholderSize: true,
-        start: function (event, ui) {
-        },
-        stop: function (event, ui) {
-        },
-        update: function (event, ui) {
-            $.ajax({
-                type: "POST",
-                url: EE.datagrab.sort_imports,
-                data: $sortableTable.closest('form').serialize(),
-                error: function (xhr, text, msg) {
-                    console.log(xhr, text, msg);
-                }
-            });
-        }
-    });
 });

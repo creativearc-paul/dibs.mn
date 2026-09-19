@@ -1,7 +1,5 @@
 <?php
 
-use BoldMinded\DataGrab\FieldTypes\AbstractFieldType;
-
 /**
  * DataGrab Date fieldtype class
  *

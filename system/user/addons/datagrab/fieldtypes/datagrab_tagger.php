@@ -1,8 +1,5 @@
 <?php
 
-use BoldMinded\DataGrab\FieldTypes\AbstractFieldType;
-use BoldMinded\DataGrab\FieldTypes\ImportField;
-
 /**
  * DataGrab Tagger fieldtype class
  *
@@ -12,46 +9,39 @@ use BoldMinded\DataGrab\FieldTypes\ImportField;
  */
 class Datagrab_tagger extends AbstractFieldType
 {
-    protected string $docUrl = 'https://docs.boldminded.com/datagrab/docs/field-types/tag';
-
-    protected string $fieldDescription = 'Multiple values must be comma or pipe delimited.';
-
-    public function preparePostData(ImportField $importField)
+    public function prepare_post_data(Datagrab_model $DG, array $item = [], int $fieldId = 0, string $fieldName = '', array &$data = [], int $updateEntryId = 0)
     {
+        /*
+            [field_id_124] => Array (
+          [tags] => Array (
+            [0] => hello
+            [1] => another
+          )
+            )
+        */
+
+        $data["field_id_" . $fieldId]["tags"] = array();
+
         // Can the current datatype handle sub-loops (eg, XML)?
-        if ($importField->importer->dataType->initialise_sub_item()) {
-            $values = [];
-
+        if (
+            $DG->dataType->datatype_info["allow_subloop"] &&
+            $DG->dataType->initialise_sub_item($item, $DG->settings["cf"][$fieldName], $DG->settings, $fieldName)
+        ) {
             // Loop over sub items
-            while ($subitem = $importField->importer->dataType->get_sub_item(
-                $importField->importItem,
-                $importField->fieldImportConfig['value'],
-                $importField->fieldSettings,
-                $importField->fieldName
-            )) {
-                $subitem = str_replace('|', ',', $subitem);
+            $tags = array();
+            while ($subitem = $DG->dataType->get_sub_item(
+                $item, $DG->settings["cf"][$fieldName], $DG->settings, $fieldName)) {
 
-                foreach (explode(',', $subitem) as $item) {
-                    $values[] = trim($item);
+                foreach (explode(",", $subitem) as $titem) {
+                    $tags[] = trim($titem);
                 }
             }
 
-            return [
-                'tags' => $values,
-            ];
+            $data["field_id_" . $fieldId]["tags"] = $tags;
+        } else {
+            foreach (explode(",", $DG->dataType->get_item($item, $DG->settings["cf"][$fieldName])) as $titem) {
+                $tags[] = trim($titem);
+            }
         }
-
-        $value = $importField->importer->dataType->get_item(
-            $importField->importItem,
-            $importField->fieldImportConfig['value'],
-            $importField->fieldSettings,
-            $importField->fieldName
-        );
-
-        $value = str_replace('|', ',', $value);
-
-        return [
-            'tags' => array_map('trim', explode(',', $value))
-        ];
     }
 }

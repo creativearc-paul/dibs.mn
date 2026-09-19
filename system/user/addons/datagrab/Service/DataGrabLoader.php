@@ -2,7 +2,7 @@
 
 namespace BoldMinded\DataGrab\Service;
 
-use BoldMinded\DataGrab\FieldTypes\AbstractFieldType;
+use AbstractFieldType;
 use AbstractModule;
 use Datagrab_default;
 
@@ -13,6 +13,10 @@ class DataGrabLoader
      */
     private function loadDataGrabFieldType()/*: void */
     {
+        if (!class_exists('AbstractFieldType')) {
+            require_once sprintf('%sdatagrab/fieldtypes/AbstractFieldType.php', PATH_THIRD);
+        }
+
         if (!class_exists('Datagrab_default')) {
             require_once sprintf('%sdatagrab/fieldtypes/datagrab_default.php', PATH_THIRD);
         }
@@ -50,14 +54,9 @@ class DataGrabLoader
         $this->loadDataGrabFieldType();
 
         $className = 'Datagrab_' . $fieldType;
-
-        // Some fieldtypes are nearly identical to others
         $dependencies = [
             'file_grid' => [
                 'grid'
-            ],
-            'checkboxes' => [
-                'multi_select'
             ],
         ];
 

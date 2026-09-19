@@ -24,7 +24,7 @@ use BoldMinded\DataGrab\Dependency\Symfony\Component\Console\Exception\InvalidOp
 class ArrayInput extends Input
 {
     private $parameters;
-    public function __construct(array $parameters, ?InputDefinition $definition = null)
+    public function __construct(array $parameters, InputDefinition $definition = null)
     {
         $this->parameters = $parameters;
         parent::__construct($definition);

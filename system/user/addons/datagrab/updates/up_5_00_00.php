@@ -13,7 +13,6 @@ class Update_5_00_00 extends AbstractUpdate
 
         if (!ee('db')->table_exists('datagrab_failed_jobs')) {
             $schema->create('failed_jobs', function (Blueprint $table) {
-                $table->engine = 'InnoDB';
                 $table->id();
                 $table->string('uuid')->unique();
                 $table->text('connection');
@@ -26,7 +25,6 @@ class Update_5_00_00 extends AbstractUpdate
 
         if (!ee('db')->table_exists('datagrab_jobs')) {
             $schema->create('jobs', function (Blueprint $table) {
-                $table->engine = 'InnoDB';
                 $table->bigIncrements('id');
                 $table->string('queue')->index();
                 $table->longText('payload');
@@ -36,40 +34,6 @@ class Update_5_00_00 extends AbstractUpdate
                 $table->unsignedInteger('created_at');
             });
         }
-
-//        $tablePrefix = ee()->db->dbprefix;
-//
-//        $tables = [
-//            $tablePrefix.'datagrab_jobs' => "CREATE TABLE `{$tablePrefix}datagrab_jobs` (
-//                `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-//                `queue` varchar(255) NOT NULL,
-//                `payload` longtext NOT NULL,
-//                `attempts` tinyint(3) unsigned NOT NULL,
-//                `reserved_at` int(10) unsigned DEFAULT NULL,
-//                `available_at` int(10) unsigned NOT NULL,
-//                `created_at` int(10) unsigned NOT NULL,
-//                PRIMARY KEY (`id`),
-//                KEY `jobs_queue_index` (`queue`)
-//            ) ENGINE=InnoDB DEFAULT CHARSET=utf8;",
-//
-//            $tablePrefix.'datagrab_failed_jobs' => "CREATE TABLE `{$tablePrefix}datagrab_failed_jobs` (
-//                `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-//                `uuid` varchar(255) NOT NULL,
-//                `connection` text NOT NULL,
-//                `queue` text NOT NULL,
-//                `payload` longtext NOT NULL,
-//                `exception` longtext NOT NULL,
-//                 `failed_at` timestamp NOT NULL DEFAULT current_timestamp(),
-//                PRIMARY KEY (`id`),
-//                UNIQUE KEY `failed_jobs_uuid_unique` (`uuid`)
-//            ) ENGINE=InnoDB DEFAULT CHARSET=utf8;",
-//        ];
-
-//        foreach ($tables as $tableName => $tableDefinition) {
-//            if (!ee()->db->table_exists($tableName)) {
-//                ee()->db->query($tableDefinition);
-//            }
-//        }
 
         if (!ee('db')->field_exists('delete_records', 'datagrab')) {
             ee()->load->dbforge();

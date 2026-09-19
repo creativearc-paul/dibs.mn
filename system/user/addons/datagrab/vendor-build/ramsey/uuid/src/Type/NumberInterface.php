@@ -15,7 +15,7 @@ namespace BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Type;
 /**
  * NumberInterface ensures consistency in numeric values returned by ramsey/uuid
  *
- * @immutable
+ * @psalm-immutable
  */
 interface NumberInterface extends TypeInterface
 {

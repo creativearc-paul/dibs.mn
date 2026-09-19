@@ -9,6 +9,8 @@ namespace BoldMinded\DataGrab\Dependency\Brick\Math\Exception;
 class DivisionByZeroException extends MathException
 {
     /**
+     * @return DivisionByZeroException
+     *
      * @psalm-pure
      */
     public static function divisionByZero() : DivisionByZeroException
@@ -16,6 +18,8 @@ class DivisionByZeroException extends MathException
         return new self('Division by zero.');
     }
     /**
+     * @return DivisionByZeroException
+     *
      * @psalm-pure
      */
     public static function modulusMustNotBeZero() : DivisionByZeroException
@@ -23,6 +27,8 @@ class DivisionByZeroException extends MathException
         return new self('The modulus must not be zero.');
     }
     /**
+     * @return DivisionByZeroException
+     *
      * @psalm-pure
      */
     public static function denominatorMustNotBeZero() : DivisionByZeroException

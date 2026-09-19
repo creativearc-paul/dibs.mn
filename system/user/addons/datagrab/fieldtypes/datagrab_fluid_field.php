@@ -1,9 +1,5 @@
 <?php
 
-use BoldMinded\DataGrab\FieldTypes\AbstractFieldType;
-use BoldMinded\DataGrab\FieldTypes\ImportField;
-use BoldMinded\DataGrab\Service\Importer;
-
 /**
  * DataGrab Fluid Field fieldtype class
  *
@@ -13,426 +9,158 @@ use BoldMinded\DataGrab\Service\Importer;
  */
 class Datagrab_fluid_field extends AbstractFieldType
 {
-    protected string $docUrl = 'https://docs.boldminded.com/datagrab/docs/field-types/fluid';
-
-    private $supportedFieldTypes = [
-        'ansel',
-        'date',
-        'file',
-        'grid',
-        'relationship',
-    ];
-
     /**
      * Register a setting so it can be saved
      *
-     * @param string $fieldName
+     * @param string $field_name
      * @return array
      */
-    public function register_setting(string $fieldName): array
+    public function register_setting(string $field_name): array
     {
         return [
-            $fieldName => [
-                'groups',
-                'fields',
-                'unique',
-            ]
+            $field_name . "_fields",
+            $field_name . "_unique",
+            $field_name . '_upload_dir',
+            $field_name . '_fetch_url',
         ];
     }
 
-    public function display_configuration(
-        Importer $importer,
-        string   $fieldName,
-        string   $fieldLabel,
-        string   $fieldType,
-        bool     $fieldRequired = false,
-        array    $data = []
-    ): array {
+    public function display_configuration(Datagrab_model $DG, string $fieldName, string $fieldLabel, string $fieldType, bool $fieldRequired = false, array $data = []): array
+    {
         $config = [];
-        $config['label'] = $this->displayLabel($fieldLabel, $fieldName, $fieldRequired, 'fluid_field');
+        $config['label'] = form_label($fieldLabel);
 
-        // Get current saved settings
-        $default = $this->getSavedFieldValues($data, $fieldName);
-        $savedGroups = $default['groups'] ?? [];
-
-        $fluidFields = $this->getFluidFields($fieldName);
-        $fieldOptions = [];
-
-        foreach ($fluidFields as $groupId => $fields) {
-            if ($groupId > 0) {
-                $groupHtml = ee('View')
-                    ->make('ee:_shared/form/section')
-                    ->render([
-                        'name' => 'fieldset_group',
-                        'settings' => $this->getFieldOptions(
-                            $importer,
-                            sprintf('%s[groups][%s]', $fieldName, $groupId),
-                            $fields['fields'],
-                            $data,
-                            $savedGroups[$groupId]['fields'] ?? [],
-                        )
-                    ]);
-
-                $fieldOptions[] = ee('View')
-                    ->make('datagrab:panel')
-                    ->render([
-                        'heading' => $fields['groupName'],
-                        'html' => $groupHtml
-                    ]);
-            } else {
-                $fieldOptions = array_merge($fieldOptions, $this->getFieldOptions(
-                    $importer,
-                    sprintf('%s[groups][%s]', $fieldName, $groupId),
-                    $fields,
-                    $data,
-                    $savedGroups[$groupId]['fields'] ?? [],
-                ));
-            }
+        if ($fieldRequired) {
+            $config['label'] .= ' <span class="datagrab_required">*</span>';
         }
 
-        $config['value'] = ee('View')
-            ->make('ee:_shared/form/section')
-            ->render([
-                'name' => 'fieldset_group',
-                'settings' => $fieldOptions
-            ]);
+        $config['label'] .= '<div class="datagrab_subtext">' . $fieldType . "</div>";
+
+        $config['value'] = '';
+         $config['value'] .= form_hidden($fieldName, '1');
+
+        // Get current saved setting
+        if (isset($data['default_settings']['cf'][$fieldName . '_fields'])) {
+            $default = $data['default_settings']['cf'][$fieldName . '_fields'];
+        } else {
+            $default = [];
+        }
+
+        $fieldOptions = $this->getFieldOptions($fieldName);
+
+        foreach ($fieldOptions as $field) {
+            $config["value"] .= "<p>" .
+                $field["label"] . NBS . ":" . NBS;
+            $config["value"] .= form_dropdown(
+                $fieldName . "_fields[" . $field["id"] . "]",
+                $data["data_fields"],
+                isset($default[$field["id"]]) ? $default[$field["id"]] : ''
+            );
+
+            if ($field['type'] === 'file') {
+                $config['value'] .= NBS . NBS . "Upload folder: " . NBS;
+
+                // Get upload folders
+                if (!isset($folders)) {
+                    ee()->db->select("id, name");
+                    ee()->db->from("exp_upload_prefs");
+                    ee()->db->order_by("id");
+                    $query = ee()->db->get();
+                    $folders = [];
+                    foreach ($query->result_array() as $folder) {
+                        $folders[$folder["id"]] = $folder["name"];
+                    }
+                }
+
+                $config['value'] .= form_dropdown(
+                    $fieldName . "_upload_dir[" . $field['id'] . "]",
+                    $folders,
+                    isset($data["default_settings"]["cf"][$fieldName . "_upload_dir"][$field['id']]) ? $data["default_settings"]["cf"][$fieldName . "_upload_dir"][$field['id']] : ''
+                );
+                $config['value'] .= NBS . NBS . "Fetch from remote URL?: " . NBS;
+                $config['value'] .= form_dropdown(
+                    $fieldName . "_fetch_url[" . $field['id'] . "]",
+                    ['No', 'Yes'],
+                    isset($data["default_settings"]["cf"][$fieldName . "_fetch_url"][$field['id']]) ? $data["default_settings"]["cf"][$fieldName . "_fetch_url"][$field['id']] : ''
+                );
+            }
+
+            $config["value"] .= "</p>";
+        }
 
         return $config;
     }
 
-    public function save_configuration(
-        Importer $importer,
-        string   $fieldName = '',
-        array    $customFieldSettings = []
-    ) {
-        foreach ($customFieldSettings['groups'] as &$groupFields) {
-            foreach ($groupFields['fields'] as &$fieldSettings) {
-                if (isset($fieldSettings['fieldType'])) {
-                    $handler = $importer->getLoader()->loadFieldTypeHandler($fieldSettings['fieldType']);
-
-                    if ($handler && method_exists($handler, 'save_configuration')) {
-                        $fieldSettings = $handler->save_configuration($importer, $fieldName, $fieldSettings);
-                    }
-                }
-            }
-        }
-
-        return $customFieldSettings;
-    }
-
-    private function getFieldOptions(
-        Importer $importer,
-        string   $fieldName,
-        array    $fields = [],
-        array    $data = [],
-        array    $savedFieldValues = [],
-    ): array {
-        $fieldOptions = [];
-
-        foreach ($fields as $field) {
-            if (in_array($field['type'], $this->supportedFieldTypes)) {
-                $handler = $importer->getLoader()->loadFieldTypeHandler($field['type']);
-                $handler->fieldPrefix = $fieldName . '[fields]';
-                $savedFieldSettings = $savedFieldValues[$field['id']] ?? [];
-
-                $subFormFields = $handler->getFormFields(
-                    $handler->createFieldName($field['id']),
-                    $data['field_settings'][$field['name']] ?? [],
-                    $data,
-                    $savedFieldSettings,
-                    'fluid_field',
-                    $importer
-                );
-
-                $fieldOptions[] = ee('View')
-                    ->make('ee:_shared/form/section')
-                    ->render([
-                        'name' => $field['label'],
-                        'settings' => $subFormFields,
-                    ]);
-            } else {
-                $fieldOptions[] = ee('View')
-                    ->make('ee:_shared/form/section')
-                    ->render([
-                        'name' => $field['label'],
-                        'settings' => [
-                            [
-                                'title' => 'Import Value',
-                                'desc' => '',
-                                'fields' => [
-                                    $fieldName . '[fields][' . $field['id'] . '][value]' => [
-                                        'type' => 'dropdown',
-                                        'choices' => $data['data_fields'],
-                                        'value' => $savedFieldValues[$field['id']]['value'] ?? '',
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ]);
-            }
-        }
-
-        return $fieldOptions;
-    }
-
-    /*
-     * Example POST data
-     *
-     * $_POST['field_id_X'] = [
-            'fields' => [
-                'new_field_1' => [
-                    'field_group_id_0' => [
-                        'field_id_1' => 'description 1',
-                    ],
-                ],
-                'new_field_2' => [
-                    'field_group_id_1' => [
-                        'field_id_1' => 'desc group 1',
-                        'field_id_4' => 'heading group 1',
-                    ],
-                ],
-                'new_field_3' => [
-                    'field_group_id_0' => [
-                        'field_id_1' => 'description 2',
-                    ],
-                ],
-                'new_field_4' => [
-                    'field_group_id_2' => [
-                        'field_id_6' => '',
-                        'field_id_8' => '20',
-                    ],
-                ],
-                'new_field_5' => [
-                    'field_group_id_1' => [
-                        'field_id_1' => 'A',
-                        'field_id_4' => 'B',
-                    ],
-                ],
-            ],
-        ];
-     */
-
-    private function validatePath(string $path, string $checkPath): string|bool
+    //$post = [
+    //    'field_id_22' =>
+    //        [
+    //            'fields' =>
+    //                [
+    //                    'new_field_1' =>
+    //                        [
+    //                            'field_id_29' => '<p>123</p>',
+    //                        ],
+    //                    'new_field_2' =>
+    //                        [
+    //                            'field_id_1' => '<p>abc</p>',
+    //                        ],
+    //                ],
+    //        ]
+    //    ];
+    public function final_post_data(Datagrab_model $DG, array $item = [], int $fieldId = 0, string $fieldName = '', array &$data = [], int $updateEntryId = 0)
     {
-        // Prepare/normalize
-        $keyPatternMatch = preg_replace('/(?<=\/){n}(?=\/)/', '\d+', $checkPath ?? '');
-        // Escape forward slashes, but don't double escape
-        $preparedPattern = preg_replace('~(?<!\\\)/~', '\/', $keyPatternMatch);
+        $fields = $DG->settings["cf"][$fieldName . '_fields'];
+        $fieldOptions = $this->getFieldOptions($fieldName);
+        $fieldTypes = array_column($fieldOptions, 'type', 'id');
+        $fluid = [];
+        $order = [];
 
-        preg_match('/'. $preparedPattern .'$/', $path, $pathMatches);
-
-        if (!empty(array_filter($pathMatches))) {
-            return $checkPath;
-        }
-
-        return false;
-    }
-
-    private function findUniqueFieldSettingValues(array $fieldSettings): array
-    {
-        $results = [];
-
-        foreach ($fieldSettings as $key => $value) {
-            if (is_array($value)) {
-                $results = array_merge($results, $this->findUniqueFieldSettingValues($value));
-            } elseif ($key === 'value' && $value !== '') {
-                $results[] = $value;
+        foreach ($item as $key => $node) {
+            $cleanedKey = strtok($key, '#');
+            if ($key === $cleanedKey . '#') {
+                continue;
             }
-        }
-
-        return $results;
-    }
-
-    public function hasFieldValue(array $settings = []): string
-    {
-        $values = [];
-
-        foreach ($settings['groups'] ?? [] as $group) {
-            foreach ($group['fields'] ?? [] as $field) {
-                if (($field['value'] ?? '') !== '') {
-                    $values[] = $field['value'];
-                }
-            }
-        }
-
-        return implode(',', $values);
-    }
-
-    public function finalPostData(ImportField $importField): array
-    {
-        $fieldSettings = $importField->fieldImportConfig['groups'] ?? [];
-        $fieldTypes = $this->getFluidFieldTypes($importField->fieldName);
-        $data = [];
-
-        $importItem = $importField->importItem;
-        $indexedFields = [];
-
-        // If there are no mapped fields to import reduce the array size, thus reducing the iterations below.
-        // If we have no settings at all, return early as there is nothing configured for this field.
-        $fieldSettingsReduced = array_filter($fieldSettings, function ($value, $key) {
-            return !empty(array_filter(array_column($value['fields'], 'value')));
-        }, ARRAY_FILTER_USE_BOTH);
-
-        // Avoid unnecessary iterations if no fields were configured for import. If the import file is large,
-        // e.g. a WordPress file with lots of meta fields, $importItem is going to have a LOT of paths, so
-        // this is going to perform a lot of iterations.
-        if (empty($fieldSettingsReduced)) {
-            return ['fields' => $data];
-        }
-
-        $uniqueFieldSettingValues = $this->findUniqueFieldSettingValues($fieldSettings);
-
-        // Make the importItem list as small as possible to reduce excessive iterations. In testing this reduced
-        // it from about 1300 extra iterations an entry to just 15. That's just 1 use case, but shows how effective this is.
-        $importItem = array_filter($importItem, function ($key) use ($uniqueFieldSettingValues, $importField) {
-            $newKey = $importField->importer->dataType->item_key_placeholders($key);
-            return in_array($newKey, $uniqueFieldSettingValues);
-        }, ARRAY_FILTER_USE_KEY);
-
-        $subItemsKeys = [];
-
-        foreach ($importItem as $path => $fieldValue) {
-            foreach ($fieldSettingsReduced as $groupId => $fields) {
-                foreach ($fields['fields'] as $fieldId => $settings) {
-                    $fieldType = $fieldTypes[$fieldId]['type'] ?? '';
-                    $handler = $importField->importer->getLoader()->loadFieldTypeHandler($fieldType);
-
-                    if ($handler && method_exists($handler, 'validatePath')) {
-                        $validPath = $handler->validatePath($path, $settings);
-                    } else {
-                        $validPath = $this->validatePath($path, $settings['value'] ?? '');
-                    }
-
-                    if (!$validPath) {
-                        continue;
-                    }
-
-                    if ($handler && method_exists($handler, 'preparePostData')) {
-                        $importSubItem = null;
-
-                        // For things like Grid fields, we need to extract the subset of data from the main importItem
-                        // or else it will fetch all matching paths and insert them all into each instance of the same
-                        // grid field appearing in the import. This is the only way to import multiple Grid fields
-                        // into a Fluid field. Don't process the same key multiple times, otherwise in the case of Grid
-                        // fields, it will create multiple instances of the same grid field, one for each row in the field.
-                        if ($handler::HAS_SUB_ITEMS) {
-                            $importSubItem = $importField->importer->dataType->extract_sub_items($importItem, $path);
-                            $importSubItemUid = md5(serialize(array_keys($importSubItem)));
-
-                            if (
-                                empty($importSubItem) ||
-                                in_array($importSubItemUid, $subItemsKeys)
-                            ) {
-                                continue;
-                            }
-
-                            $subItemsKeys[] = $importSubItemUid;
-                        }
-
-                        $value = $handler->preparePostData(new ImportField(
-                            importer: $importField->importer,
-                            importItem: $importSubItem ?? $importItem,
-                            propertyName: $validPath,
-                            propertyValue: $fieldValue,
-                            fieldImportConfig: $settings,
-                            fieldSettings: $importField->importer->getCustomFieldSettings($importField->fieldName),
-                            entryId: $importField->entryId,
-                            fieldName: $importField->fieldName,
-                            fieldId: $fieldId ?? $importField->fieldId,
-                            contentType: 'fluid',
-                        ));
-
-                        $indexedFields[] = [
-                            'groupId' => $groupId,
-                            'fieldId' => $fieldId,
-                            'value' => $value,
-                            'settings' => $settings,
-                            'type' => $fieldType,
-                        ];
-                    } else {
-                        $indexedFields[] = [
-                            'groupId' => $groupId,
-                            'fieldId' => $fieldId,
-                            'value' => $fieldValue,
-                            'settings' => $settings,
-                            'type' => $fieldType,
-                        ];
-                    }
-                }
+            if (in_array($cleanedKey, $fields)) {
+                $order[] = $key;
             }
         }
 
         $rowNum = 1;
+        $search = array_flip(array_filter($fields));
 
-        foreach ($indexedFields as $index => $field) {
-            $groupId = $field['groupId'];
-            $fieldId = $field['fieldId'];
-            $value = $field['value'];
-            $fieldIds = array_keys($fieldSettings[$groupId]['fields'] ?? []);
+        foreach ($order as $nodeName) {
+            $rowIdx = 'new_field_' . $rowNum;
+            $rowNum++;
+            $fluidFieldName = strtok($nodeName, '#');
+            $fluidFieldId = $search[$fluidFieldName];
 
-            $data['new_field_' . $rowNum]['field_group_id_' . $groupId]['field_id_' . $fieldId] = $value;
+            $content = $DG->dataType->get_item($item, $nodeName, $DG->settings, $fieldName);
 
-            // Group #0 means they are basically ungrouped and only 1 field can exist in it.
-            // So start a new field row. Otherwise, look ahead to see if it's going to change groups.
-            $nextField = $indexedFields[$index+1] ?? [];
-
-            if (
-                $groupId === 0
-                || count($fieldIds) === 1
-                || $groupId !== $nextField['groupId']
-                || $nextField['fieldId'] === $fieldId // can't have 2 fields of the same ID in a group
-                || !in_array($nextField['fieldId'], $fieldIds)
-            ) {
-                $rowNum++;
+            if ($fieldTypes[$fluidFieldId] === 'file') {
+                $fetchFromUrl = $DG->settings["cf"][$fieldName . "_fetch_url"][$fluidFieldId] ?? 'No';
+                $content = $DG->getFile(
+                    $content,
+                    $DG->settings["cf"][$fieldName . "_upload_dir"][$fluidFieldId],
+                    get_bool_from_string($fetchFromUrl)
+                );
             }
+
+            $fluid[$rowIdx]['field_id_' . $fluidFieldId] = $content;
         }
 
-        return ['fields' => $data];
-    }
-
-    private function findParentPath(string $path): string {
-        $preparedPath = preg_replace('/\/(\d+)\//', '.$1.', $path);
-        $preparedPath = str_replace('/__parent__', '', $preparedPath);
-
-        if (preg_match('/^(.*)\.(\d+)(\D.*|$)/', $preparedPath, $matches)) {
-            return $matches[1] . '.' . ((int) $matches[2] + 1);
-        }
-
-        return $path;
-    }
-
-    private function getFluidFieldTypes(string $fieldName): array
-    {
-        $fields = $this->getFluidFields($fieldName);
-        $collection = [];
-
-        foreach ($fields as $groupId => $field) {
-            if ($groupId === 0) {
-                foreach ($field as $ungroupedField) {
-                    $collection[$ungroupedField['id']] = $ungroupedField;
-                }
-            } else {
-                foreach ($field['fields'] as $groupedField) {
-                    $collection[$groupedField['id']] = $groupedField;
-                }
-            }
-        }
-
-        return $collection;
+        $data['field_id_' . $fieldId]['fields'] = $fluid;
     }
 
     /**
      * @param string $fieldName
      * @return array
      */
-    private function getFluidFields(string $fieldName): array
+    private function getFieldOptions(string $fieldName): array
     {
         $field = ee('Model')->get('ChannelField')->filter('field_name', $fieldName)->first();
-        $fieldOptions = array_filter($field->field_settings['field_channel_fields']);
-        $fieldGroupOptions = array_filter($field->field_settings['field_channel_field_groups']);
-        $groupFields = [];
+        $fieldOptions = $field->field_settings['field_channel_fields'];
 
-        $fields = ee('Model')->get('ChannelField')
+        return ee('Model')->get('ChannelField')
             ->filter('site_id', 'IN', [ee()->config->item('site_id'), 0])
             ->filter('field_id', 'IN', $fieldOptions)
             ->order('field_label')
@@ -448,31 +176,5 @@ class Datagrab_fluid_field extends AbstractFieldType
                     'type' => $field->field_type,
                 ];
             });
-
-        $groupFields[0] = $fields;
-
-        if (count($fieldGroupOptions) > 0) {
-            $fieldGroups = ee('Model')->get('ChannelFieldGroup')
-                ->with('ChannelFields')
-                ->filter('group_id', 'IN', $fieldGroupOptions)
-                ->order('group_name', 'desc')
-                ->all();
-
-            foreach ($fieldGroups as $group) {
-                $groupFields[$group->group_id] = [
-                    'groupName' => $group->group_name,
-                    'fields' => $group->ChannelFields->map(function ($field) {
-                        return [
-                            'label' => $field->field_label,
-                            'id' => $field->getId(),
-                            'name' => $field->field_name,
-                            'type' => $field->field_type,
-                        ];
-                    }),
-                ];
-            }
-        }
-
-        return $groupFields;
     }
 }

@@ -1,7 +1,5 @@
 <?php
 
-use BoldMinded\DataGrab\Service\Importer;
-
 interface ModuleInterface
 {
     /**
@@ -15,25 +13,25 @@ interface ModuleInterface
     public function getName(): string;
 
     /**
-     * @param Importer $importer
+     * @param Datagrab_model $DG
      * @param array          $data
      * @return array
      */
-    public function displayConfiguration(Importer $importer, array $data = []): array;
+    public function displayConfiguration(Datagrab_model $DG, array $data = []): array;
 
     /**
-     * @param Importer $importer
+     * @param Datagrab_model $DG
      * @return array
      */
-    public function saveConfiguration(Importer $importer): array;
+    public function saveConfiguration(Datagrab_model $DG): array;
 
     /**
-     * @param Importer $importer
+     * @param Datagrab_model $DG
      * @param array          $data
      * @param array          $item
      * @param array          $custom_fields
      * @param string         $action
      * @return mixed
      */
-    public function handle(Importer $importer, array &$data = [], array $item = [], array $custom_fields = [], string $action = '');
+    public function handle(Datagrab_model $DG, array &$data = [], array $item = [], array $custom_fields = [], string $action = '');
 }

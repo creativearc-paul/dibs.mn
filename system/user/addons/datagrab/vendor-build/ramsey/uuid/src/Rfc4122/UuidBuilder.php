@@ -15,35 +15,40 @@ namespace BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Rfc4122;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Builder\UuidBuilderInterface;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Codec\CodecInterface;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Converter\NumberConverterInterface;
-use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Converter\Time\UnixTimeConverter;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Converter\TimeConverterInterface;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Exception\UnableToBuildUuidException;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Exception\UnsupportedOperationException;
-use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Math\BrickMathCalculator;
+use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Nonstandard\UuidV6;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Rfc4122\UuidInterface as Rfc4122UuidInterface;
-use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Uuid;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\UuidInterface;
 use Throwable;
 /**
- * UuidBuilder builds instances of RFC 9562 (formerly 4122) UUIDs
+ * UuidBuilder builds instances of RFC 4122 UUIDs
  *
- * @immutable
+ * @psalm-immutable
  */
 class UuidBuilder implements UuidBuilderInterface
 {
-    private TimeConverterInterface $unixTimeConverter;
+    /**
+     * @var NumberConverterInterface
+     */
+    private $numberConverter;
+    /**
+     * @var TimeConverterInterface
+     */
+    private $timeConverter;
     /**
      * Constructs the DefaultUuidBuilder
      *
-     * @param NumberConverterInterface $numberConverter The number converter to use when constructing the Uuid
-     * @param TimeConverterInterface $timeConverter The time converter to use for converting Gregorian time extracted
-     *     from version 1, 2, and 6 UUIDs to Unix timestamps
-     * @param TimeConverterInterface | null $unixTimeConverter The time converter to use for converter Unix Epoch time
-     *     extracted from version 7 UUIDs to Unix timestamps
+     * @param NumberConverterInterface $numberConverter The number converter to
+     *     use when constructing the Uuid
+     * @param TimeConverterInterface $timeConverter The time converter to use
+     *     for converting timestamps extracted from a UUID to Unix timestamps
      */
-    public function __construct(private NumberConverterInterface $numberConverter, private TimeConverterInterface $timeConverter, ?TimeConverterInterface $unixTimeConverter = null)
+    public function __construct(NumberConverterInterface $numberConverter, TimeConverterInterface $timeConverter)
     {
-        $this->unixTimeConverter = $unixTimeConverter ?? new UnixTimeConverter(new BrickMathCalculator());
+        $this->numberConverter = $numberConverter;
+        $this->timeConverter = $timeConverter;
     }
     /**
      * Builds and returns a Uuid
@@ -53,50 +58,39 @@ class UuidBuilder implements UuidBuilderInterface
      *
      * @return Rfc4122UuidInterface UuidBuilder returns instances of Rfc4122UuidInterface
      *
-     * @pure
+     * @psalm-pure
      */
     public function build(CodecInterface $codec, string $bytes) : UuidInterface
     {
         try {
-            /** @var Fields $fields */
             $fields = $this->buildFields($bytes);
             if ($fields->isNil()) {
-                /** @phpstan-ignore possiblyImpure.new */
                 return new NilUuid($fields, $this->numberConverter, $codec, $this->timeConverter);
             }
-            if ($fields->isMax()) {
-                /** @phpstan-ignore possiblyImpure.new */
-                return new MaxUuid($fields, $this->numberConverter, $codec, $this->timeConverter);
+            switch ($fields->getVersion()) {
+                case 1:
+                    return new UuidV1($fields, $this->numberConverter, $codec, $this->timeConverter);
+                case 2:
+                    return new UuidV2($fields, $this->numberConverter, $codec, $this->timeConverter);
+                case 3:
+                    return new UuidV3($fields, $this->numberConverter, $codec, $this->timeConverter);
+                case 4:
+                    return new UuidV4($fields, $this->numberConverter, $codec, $this->timeConverter);
+                case 5:
+                    return new UuidV5($fields, $this->numberConverter, $codec, $this->timeConverter);
+                case 6:
+                    return new UuidV6($fields, $this->numberConverter, $codec, $this->timeConverter);
             }
-            return match ($fields->getVersion()) {
-                /** @phpstan-ignore possiblyImpure.new */
-                Uuid::UUID_TYPE_TIME => new UuidV1($fields, $this->numberConverter, $codec, $this->timeConverter),
-                Uuid::UUID_TYPE_DCE_SECURITY => new UuidV2($fields, $this->numberConverter, $codec, $this->timeConverter),
-                /** @phpstan-ignore possiblyImpure.new */
-                Uuid::UUID_TYPE_HASH_MD5 => new UuidV3($fields, $this->numberConverter, $codec, $this->timeConverter),
-                /** @phpstan-ignore possiblyImpure.new */
-                Uuid::UUID_TYPE_RANDOM => new UuidV4($fields, $this->numberConverter, $codec, $this->timeConverter),
-                /** @phpstan-ignore possiblyImpure.new */
-                Uuid::UUID_TYPE_HASH_SHA1 => new UuidV5($fields, $this->numberConverter, $codec, $this->timeConverter),
-                Uuid::UUID_TYPE_REORDERED_TIME => new UuidV6($fields, $this->numberConverter, $codec, $this->timeConverter),
-                Uuid::UUID_TYPE_UNIX_TIME => new UuidV7($fields, $this->numberConverter, $codec, $this->unixTimeConverter),
-                /** @phpstan-ignore possiblyImpure.new */
-                Uuid::UUID_TYPE_CUSTOM => new UuidV8($fields, $this->numberConverter, $codec, $this->timeConverter),
-                default => throw new UnsupportedOperationException('The UUID version in the given fields is not supported by this UUID builder'),
-            };
+            throw new UnsupportedOperationException('The UUID version in the given fields is not supported ' . 'by this UUID builder');
         } catch (Throwable $e) {
-            /** @phpstan-ignore possiblyImpure.methodCall, possiblyImpure.methodCall */
             throw new UnableToBuildUuidException($e->getMessage(), (int) $e->getCode(), $e);
         }
     }
     /**
-     * Proxy method to allow injecting a mock for testing
-     *
-     * @pure
+     * Proxy method to allow injecting a mock, for testing
      */
     protected function buildFields(string $bytes) : FieldsInterface
     {
-        /** @phpstan-ignore possiblyImpure.new */
         return new Fields($bytes);
     }
 }

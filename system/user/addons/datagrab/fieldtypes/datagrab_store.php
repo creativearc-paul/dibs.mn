@@ -1,8 +1,5 @@
 <?php
 
-use BoldMinded\DataGrab\FieldTypes\AbstractFieldType;
-use BoldMinded\DataGrab\Service\Importer;
-
 /**
  * DataGrab exp-resso Store fieldtype class
  *
@@ -12,29 +9,24 @@ use BoldMinded\DataGrab\Service\Importer;
  */
 class Datagrab_store extends AbstractFieldType
 {
-    public function register_setting(string $fieldName): array
+    public function register_setting(string $field_name): array
     {
         return [
-            $fieldName => [
-                'value',
-                'sku',
-                'width',
-                'height',
-                'length',
-                'weight',
-                'handling_surcharge',
-                'free_shipping',
-                'stock',
-                'modifiers',
-            ],
+            $field_name . "_store_sku",
+            $field_name . "_store_width",
+            $field_name . "_store_length",
+            $field_name . "_store_height",
+            $field_name . "_store_weight",
+            $field_name . "_store_stock_level",
+            $field_name . "_store_limit_stock",
+            $field_name . "_store_handling_surcharge",
+            $field_name . "_store_free_shipping",
+            $field_name . "_store_min_order_qty",
+            $field_name . "_store_modifiers",
         ];
     }
 
-    /*
-     {"price":"100.00","length":"20","width":"10","height":"5","weight":"2","handling":"3.00","free_shipping":"1","modifiers":{"1":{"product_mod_id":"1","options":{"1":{"product_opt_id":"1","opt_order":"1","opt_name":"cyan","opt_price_mod":"-10.00"},"2":{"product_opt_id":"2","opt_order":"2","opt_name":"magenta","opt_price_mod":"-20.00"}},"mod_order":"0","mod_type":"var","mod_name":"Small","mod_instructions":"Turn Left"},"2":{"product_mod_id":"2","options":{"3":{"product_opt_id":"3","opt_order":"4","opt_name":"yellow","opt_price_mod":"+5.00"},"4":{"product_opt_id":"4","opt_order":"5","opt_name":"black","opt_price_mod":"+10.00"}},"mod_order":"3","mod_type":"var","mod_name":"Medium","mod_instructions":"Turn Right"}},"stock":[{"stock_options":[{"product_mod_id":"1","product_opt_id":"1"},{"product_mod_id":"2","product_opt_id":"3"}],"id":"1","sku":"cyan-yellow","track_stock":"0","stock_level":"30","min_order_qty":"1"},{"stock_options":[{"product_mod_id":"1","product_opt_id":"1"},{"product_mod_id":"2","product_opt_id":"4"}],"id":"2","sku":"cyan-black","track_stock":"0","stock_level":"20","min_order_qty":"2"},{"stock_options":[{"product_mod_id":"1","product_opt_id":"2"},{"product_mod_id":"2","product_opt_id":"3"}],"id":"3","sku":"magenta-yellow","track_stock":"0","stock_level":"10","min_order_qty":"3"},{"stock_options":[{"product_mod_id":"1","product_opt_id":"2"},{"product_mod_id":"2","product_opt_id":"4"}],"id":"4","sku":"magenta-black","track_stock":"0","stock_level":"5","min_order_qty":"4"}]}
-     */
-
-    public function display_configuration(Importer $importer, string $fieldName, string $fieldLabel, string $fieldType, bool $fieldRequired = false, array $data = []): array
+    public function display_configuration(Datagrab_model $DG, string $fieldName, string $fieldLabel, string $fieldType, bool $fieldRequired = false, array $data = []): array
     {
         $config = [];
         $config["label"] = form_label($fieldLabel);
@@ -130,7 +122,11 @@ class Datagrab_store extends AbstractFieldType
         return $config;
     }
 
-    public function final_post_data(Importer $importer, array $item = [], int $fieldId = 0, string $fieldName = '', array &$data = [], int $updateEntryId = 0)
+    //public function prepare_post_data(Datagrab_model $DG, array $item = [], int $fieldId = 0, string $fieldName = '', array &$data = [], int $updateEntryId = 0)
+    //{
+    //}
+
+    public function final_post_data(Datagrab_model $DG, array $item = [], int $fieldId = 0, string $fieldName = '', array &$data = [], int $updateEntryId = 0)
     {
         $data["field_id_" . $fieldId] = "store";
 
@@ -138,7 +134,7 @@ class Datagrab_store extends AbstractFieldType
             $existing_data = array(
                 "entry_id" => $updateEntryId
             );
-            $this->rebuild_post_data($importer, $fieldId, $data, $existing_data);
+            $this->rebuild_post_data($DG, $fieldId, $data, $existing_data);
         } else {
             // Version 2
 
@@ -184,42 +180,42 @@ class Datagrab_store extends AbstractFieldType
         }
 
         // Version 2
-        if (!in_array($updateEntryId, $importer->entries)) {
-            if ($importer->settings["cf"][$fieldName] != "") {
+        if (!in_array($updateEntryId, $DG->entries)) {
+            if ($DG->settings["cf"][$fieldName] != "") {
                 $_POST["store_product_field"]["price"] =
-                    $importer->dataType->get_item($item, $importer->settings["cf"][$fieldName]);
+                    $DG->dataType->get_item($item, $DG->settings["cf"][$fieldName]);
             }
             $price = $_POST["store_product_field"]["price"];
         } else {
             $price = $_POST["store_product_field"]["price"];
         }
         $price = preg_replace("/([^0-9\\.])/i", "", $price);
-        if ($importer->settings["cf"][$fieldName . "_store_width"] != "") {
+        if ($DG->settings["cf"][$fieldName . "_store_width"] != "") {
             $_POST["store_product_field"]["width"] =
-                $this->_to_number($importer->dataType->get_item($item, $importer->settings["cf"][$fieldName . "_store_width"]));
+                $this->_to_number($DG->dataType->get_item($item, $DG->settings["cf"][$fieldName . "_store_width"]));
         }
-        if ($importer->settings["cf"][$fieldName . "_store_weight"] != "") {
+        if ($DG->settings["cf"][$fieldName . "_store_weight"] != "") {
             $_POST["store_product_field"]["weight"] =
-                $this->_to_number($importer->dataType->get_item($item, $importer->settings["cf"][$fieldName . "_store_weight"]));
+                $this->_to_number($DG->dataType->get_item($item, $DG->settings["cf"][$fieldName . "_store_weight"]));
         }
-        if ($importer->settings["cf"][$fieldName . "_store_height"] != "") {
+        if ($DG->settings["cf"][$fieldName . "_store_height"] != "") {
             $_POST["store_product_field"]["height"] =
-                $this->_to_number($importer->dataType->get_item($item, $importer->settings["cf"][$fieldName . "_store_height"]));
+                $this->_to_number($DG->dataType->get_item($item, $DG->settings["cf"][$fieldName . "_store_height"]));
         }
-        if ($importer->settings["cf"][$fieldName . "_store_length"] != "") {
+        if ($DG->settings["cf"][$fieldName . "_store_length"] != "") {
             $_POST["store_product_field"]["length"] =
-                $this->_to_number($importer->dataType->get_item($item, $importer->settings["cf"][$fieldName . "_store_length"]));
+                $this->_to_number($DG->dataType->get_item($item, $DG->settings["cf"][$fieldName . "_store_length"]));
         }
-        if ($importer->settings["cf"][$fieldName . "_store_handling_surcharge"] != "") {
+        if ($DG->settings["cf"][$fieldName . "_store_handling_surcharge"] != "") {
             $_POST["store_product_field"]["handling"] =
-                $this->_to_number($importer->dataType->get_item($item, $importer->settings["cf"][$fieldName . "_store_handling_surcharge"]));
+                $this->_to_number($DG->dataType->get_item($item, $DG->settings["cf"][$fieldName . "_store_handling_surcharge"]));
         }
-        if ($importer->settings["cf"][$fieldName . "_store_free_shipping"] != "") {
+        if ($DG->settings["cf"][$fieldName . "_store_free_shipping"] != "") {
             $_POST["store_product_field"]["free_shipping"] =
-                $importer->dataType->get_item($item, $importer->settings["cf"][$fieldName . "_store_free_shipping"]) == "y" ? 1 : 0;
+                $DG->dataType->get_item($item, $DG->settings["cf"][$fieldName . "_store_free_shipping"]) == "y" ? 1 : 0;
         }
 
-        if (!in_array($updateEntryId, $importer->entries)) {
+        if (!in_array($updateEntryId, $DG->entries)) {
             ee()->db->where("entry_id", $updateEntryId);
             ee()->db->delete("exp_store_stock");
         }
@@ -236,52 +232,54 @@ class Datagrab_store extends AbstractFieldType
             }
         }
 
-        if ($importer->settings["cf"][$fieldName . "_store_sku"] != "") {
+        if ($DG->settings["cf"][$fieldName . "_store_sku"] != "") {
             $_POST["store_product_field"]["stock"][$count]["sku"] =
-                $importer->dataType->get_item($item, $importer->settings["cf"][$fieldName . "_store_sku"]);
+                $DG->dataType->get_item($item, $DG->settings["cf"][$fieldName . "_store_sku"]);
         }
 
-        if ($importer->settings["cf"][$fieldName . "_store_stock_level"] != "") {
+        if ($DG->settings["cf"][$fieldName . "_store_stock_level"] != "") {
             // $_POST[ "store_product_field" ][ "stock" ][$count][ "track_stock" ] = 1;
-            if ($importer->dataType->get_item($item, $importer->settings["cf"][$fieldName . "_store_stock_level"]) == "") {
+            if ($DG->dataType->get_item($item, $DG->settings["cf"][$fieldName . "_store_stock_level"]) == "") {
                 $_POST["store_product_field"]["stock"][$count]["track_stock"] = 0;
             } else {
                 $_POST["store_product_field"]["stock"][$count]["track_stock"] = 1;
             }
             $_POST["store_product_field"]["stock"][$count]["stock_level"] =
-                $importer->dataType->get_item($item, $importer->settings["cf"][$fieldName . "_store_stock_level"]);
+                $DG->dataType->get_item($item, $DG->settings["cf"][$fieldName . "_store_stock_level"]);
         }
 
-        if ($importer->settings["cf"][$fieldName . "_store_limit_stock"] != "") {
+        if ($DG->settings["cf"][$fieldName . "_store_limit_stock"] != "") {
             $_POST["store_product_field"]["stock"][$count]["track_stock"] =
-                ($importer->dataType->get_item($item, $importer->settings["cf"][$fieldName . "_store_limit_stock"]) == "y" ? 1 : 0);
+                ($DG->dataType->get_item($item, $DG->settings["cf"][$fieldName . "_store_limit_stock"]) == "y" ? 1 : 0);
         }
 
-        if ($importer->settings["cf"][$fieldName . "_store_min_order_qty"] != "") {
+        if ($DG->settings["cf"][$fieldName . "_store_min_order_qty"] != "") {
             $_POST["store_product_field"]["stock"][$count]["min_order_qty"] =
-                $importer->dataType->get_item($item, $importer->settings["cf"][$fieldName . "_store_min_order_qty"]);
+                $DG->dataType->get_item($item, $DG->settings["cf"][$fieldName . "_store_min_order_qty"]);
         }
 
         // Set up array to store modifiers
         $mod_order = 0;
 
-        if ($importer->settings["cf"][$fieldName . "_store_modifiers"] != "") {
-            $modifier_field = $importer->settings["cf"][$fieldName . "_store_modifiers"];
+        if ($DG->settings["cf"][$fieldName . "_store_modifiers"] != "") {
+            $modifier_field = $DG->settings["cf"][$fieldName . "_store_modifiers"];
 
             // Initialise loop over modifiers
-            if ($importer->dataType->initialise_sub_item()) {
+            if ($DG->dataType->initialise_sub_item(
+                $item, $modifier_field . "/mod", $DG->settings, $fieldName)) {
+
                 // Loop over modifiers
-                $subitem = $importer->dataType->get_sub_item($item, $modifier_field . "/mod", $importer->settings, $fieldName);
+                $subitem = $DG->dataType->get_sub_item($item, $modifier_field . "/mod", $DG->settings, $fieldName);
                 while ($subitem !== false) {
                     // Get 'path' of this modifier (so we can find sub elements)
-                    $subitem_path = $importer->dataType->get_sub_item_path($modifier_field . "/mod");
+                    $subitem_path = $DG->dataType->get_sub_item_path($modifier_field . "/mod");
 
                     // Get type of modifier (text_input, variation_single_sku, variation_multi_sku)
-                    $m_option_type = $importer->dataType->get_item($item, $subitem_path . '/type');
+                    $m_option_type = $DG->dataType->get_item($item, $subitem_path . '/type');
 
                     // Get modifier's name/title
-                    $m_option_name = $importer->dataType->get_item($item, $subitem_path . '/name');
-                    $m_option_instructions = $importer->dataType->get_item($item, $subitem_path . '/instructions');
+                    $m_option_name = $DG->dataType->get_item($item, $subitem_path . '/name');
+                    $m_option_instructions = $DG->dataType->get_item($item, $subitem_path . '/instructions');
 
                     $modifier = array(
                         "mod_order" => $mod_order++,
@@ -294,20 +292,20 @@ class Datagrab_store extends AbstractFieldType
                     if ($m_option_type == "variation_single_sku" || $m_option_type == "variation_multi_sku") {
                         $options_array = array();
                         // Set up and loop over options
-                        $importer->dataType->initialise_sub_item();
-                        $m_option = $importer->dataType->get_sub_item($item, $subitem_path . "/options/option", $importer->settings, $fieldName);
+                        $DG->dataType->initialise_sub_item($item, $subitem_path . "/options/option", $DG->settings, $fieldName);
+                        $m_option = $DG->dataType->get_sub_item($item, $subitem_path . "/options/option", $DG->settings, $fieldName);
                         while ($m_option !== false) {
 
                             // Get option path
-                            $m_option_path = $importer->dataType->get_sub_item_path($subitem_path . "/options/option");
+                            $m_option_path = $DG->dataType->get_sub_item_path($subitem_path . "/options/option");
 
                             $options_array[] = array(
                                 "opt_order" => $mod_order++,
-                                "opt_name" => $importer->dataType->get_item($item, $m_option_path . '/name'),
-                                "opt_price_mod" => $importer->dataType->get_item($item, $m_option_path . '/cost')
+                                "opt_name" => $DG->dataType->get_item($item, $m_option_path . '/name'),
+                                "opt_price_mod" => $DG->dataType->get_item($item, $m_option_path . '/cost')
                             );
 
-                            $m_option = $importer->dataType->get_sub_item($item, $subitem_path . "/options/option", $importer->settings, $fieldName);
+                            $m_option = $DG->dataType->get_sub_item($item, $subitem_path . "/options/option", $DG->settings, $fieldName);
                         }
                         $modifier["options"] = $options_array;
 
@@ -335,7 +333,7 @@ class Datagrab_store extends AbstractFieldType
                     }
 
                     // Get next modifier
-                    $subitem = $importer->dataType->get_sub_item($item, $modifier_field . "/mod", $importer->settings, $fieldName);
+                    $subitem = $DG->dataType->get_sub_item($item, $modifier_field . "/mod", $DG->settings, $fieldName);
                 } // End loop over modifiers
 
                 if (isset($modifiers)) {
@@ -445,7 +443,7 @@ class Datagrab_store extends AbstractFieldType
         }
 
         $_POST["url_title"] = $data["url_title"];
-        $_POST["channel_id"] = $importer->channelDefaults["channel_id"];
+        $_POST["channel_id"] = $DG->channelDefaults["channel_id"];
     }
 
     private function _get_modifier_combinations($modifiers, $stock)
@@ -492,7 +490,7 @@ class Datagrab_store extends AbstractFieldType
         return preg_replace("/([^0-9\\.])/i", "", $number);
     }
 
-    public function rebuild_post_data(Importer $importer, int $fieldId = 0, array &$data = [], array $entryData = [])
+    public function rebuild_post_data(Datagrab_model $DG, int $fieldId = 0, array &$data = [], array $existingData = [])
     {
         // Version 2
         $data["field_id_" . $fieldId] = "store";
@@ -514,7 +512,7 @@ class Datagrab_store extends AbstractFieldType
 
         ee()->db->from("exp_store_products");
         ee()->db->join("exp_store_stock", "exp_store_products.entry_id = exp_store_stock.entry_id");
-        ee()->db->where("exp_store_products.entry_id", $entryData["entry_id"]);
+        ee()->db->where("exp_store_products.entry_id", $existingData["entry_id"]);
         $query = ee()->db->get();
         if ($query->num_rows() > 0) {
             $row = $query->row_array();

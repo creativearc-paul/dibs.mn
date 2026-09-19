@@ -9,7 +9,7 @@ class QueueBusyListener
     public function handle(QueueBusy $event)
     {
         if ($event->queue !== 'delete') {
-            ee('datagrab:Importer')->logger->log('Queue Busy');
+            ee()->datagrab->logger->log('Queue Busy');
         }
     }
 }

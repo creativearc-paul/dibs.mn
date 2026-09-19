@@ -1,9 +1,7 @@
 <?php
 
-use BoldMinded\DataGrab\Model\Endpoint;
-use BoldMinded\DataGrab\Service\Importer;
 use BoldMinded\DataGrab\Service\QueueStatus;
-use ExpressionEngine\Model\Addon\Action;
+use EllisLab\ExpressionEngine\Model\Addon\Action;
 
 /**
  * @package     ExpressionEngine
@@ -54,42 +52,11 @@ class Datagrab
      */
     private $queueStatus;
 
-    /**
-     * @var Importer
-     */
-    private $importer;
-
     function __construct()
     {
+        ee()->load->model('datagrab_model', 'datagrab');
+
         $this->queueStatus = ee('datagrab:QueueStatus');
-        $this->importer = ee('datagrab:Importer');
-    }
-
-    private function loadImportSettings(int|null $importId = null, string $passKey = ''): void
-    {
-        // Fetch import settings
-        $query = ee()->db
-            ->where('id', $importId)
-            ->get('datagrab');
-
-        if ($query->num_rows() == 0) {
-            $this->importer->logger->log('Import aborted. Requested Import ID not found.');
-            exit;
-        }
-
-        $row = $query->row_array();
-        $this->settings = json_decode($row['settings'], true);
-
-        if ($row['passkey'] !== '' && $row['passkey'] !== $passKey) {
-            $this->importer->logger->log('Import aborted. Passkey required, but none provided.');
-            exit;
-        }
-
-        ini_set('memory_limit', '1G');
-
-        $this->settings['import']['id'] = $importId;
-        $this->settings['import']['passkey'] = $passKey;
-        $this->settings['import']['site_id'] = $row['site_id'];
     }
 
     /**
@@ -101,7 +68,7 @@ class Datagrab
      * @return void
      * @author BoldMinded, LLC
      */
-    public function run_action(int|null $importId = null, string $passKey = '', string $fileName = '')
+    public function run_action($importId = null, string $passKey = '', string $fileName = '')
     {
         if (ee()->input->get('id') != '') {
             $importId = ee()->input->get('id');
@@ -110,7 +77,7 @@ class Datagrab
             $passKey = ee()->input->get('passkey');
         }
         if (!$importId) {
-            $this->importer->logger->log('Import aborted. No Import ID provided.');
+            ee()->datagrab->logger->log('Import aborted. No Import ID provided.');
             exit;
         }
 
@@ -118,14 +85,35 @@ class Datagrab
         ee()->load->library('javascript');
         ee()->load->model('template_model');
 
-        $this->loadImportSettings($importId, $passKey);
+        // Fetch import settings
+        $query = ee()->db
+            ->where('id', $importId)
+            ->get('datagrab');
+
+        if ($query->num_rows() == 0) {
+            ee()->datagrab->logger->log('Import aborted. Requested Import ID not found.');
+            exit;
+        }
+
+        $row = $query->row_array();
+        $this->settings = unserialize($row["settings"]);
+
+        if ($row["passkey"] != '' && $row["passkey"] != $passKey) {
+            ee()->datagrab->logger->log('Import aborted. Passkey required, but none provided.');
+            exit;
+        }
+
+        ini_set('memory_limit', '1G');
+
+        // Initialise
+        ee()->datagrab->initialise_types();
 
         // Check for modifiers
         // If custom filename is passed in from the {exp:datagrab:run_saved_import id="X" filename="..."} tag
         // https://boldminded.com/support/ticket/2514
         if ($fileName) {
             $_GET['filename'] = $fileName;
-            $this->settings['datatype']['filename'] = $fileName;
+            $this->settings["datatype"]["filename"] = $fileName;
         } elseif (ee()->input->get('filename') !== false) {
             if (
                 ee()->input->get('filename') == 'POST' &&
@@ -138,8 +126,12 @@ class Datagrab
                 exit;
             }
 
-            $this->settings['datatype']['filename'] = ee()->input->get('filename');
+            $this->settings["datatype"]["filename"] = ee()->input->get('filename');
         }
+
+        $this->settings['import']['id'] = $importId;
+        $this->settings['import']['passkey'] = $passKey;
+        $this->settings['import']['site_id'] = $row['site_id'];
 
         // Kick it over to the action url
         if (!ee()->input->get('ACT')) {
@@ -162,38 +154,24 @@ class Datagrab
             ee()->output->enable_profiler(false);
 
             $shouldProduce = true;
-            $shouldConsume = true;
+            $shouldCOnsume = true;
 
             if (ee()->input->get('consume') === 'yes' && !ee()->input->get('produce')) {
                 $shouldProduce = false;
             }
 
             if (ee()->input->get('produce') === 'yes' && !ee()->input->get('consume')) {
-                $shouldConsume = false;
+                $shouldCOnsume = false;
             }
 
-            // Produce and immediately consume, similar to how importer used to operate,
+            // Produce and immediately consume, similar to how DG used to operate,
             // unless one or the other is explicitly defined.
-
-            $this->importer->setup(
-                $this->importer->datatypes[$this->settings['import']['type']],
+            $dg = ee()->datagrab
+                ->setup(
+                    ee()->datagrab->datatypes[$this->settings['import']['type']],
                     $this->settings,
                     $shouldProduce
                 );
-
-            if ($shouldProduce) {
-                if (ee()->input->get('restart') === 'yes') {
-                    $this->importer->resetImport();
-                }
-
-                $this->importer->produceJobs();
-            }
-
-            if ($shouldConsume) {
-                $this->importer->consumeJobs();
-            }
-
-            $shouldWork = !$this->importer->isImportComplete() || !$this->importer->isDeleteComplete();
 
             // If executing via the ACT URL outside the control panel keep refreshing
             // to keep consuming and avoid server timeouts.
@@ -205,45 +183,26 @@ class Datagrab
                     'iframe' => 'no'
                 ]);
 
+                echo sprintf('<meta http-equiv="refresh" content="%d;url=%s">', $workerOptions->timeout + 3, $url);
+
                 if (!AJAX_REQUEST) {
-                    $this->importer->logger->log('Displaying import response as HTML. Not an Ajax request.');
-
-                    // Necessary to call head_link()
-                    ee()->load->library('view');
-
-                    $logFile = '';
-
-                    if (file_exists(PATH_CACHE . 'DataGrab-import.log')) {
-                        $logFile = file_get_contents(PATH_CACHE . 'DataGrab-import.log');
-                    }
-
-                    $viewVars = array_merge(
-                        $this->queueStatus->fetch($importId)[$importId],
-                        [
-                            'refreshTimeout' => 0,
-                            'refreshUrl' => $url,
-                            'styleTag' => ee()->view->head_link('css/common.min.css'),
-                            'importName' => $row['name'] ?? '',
-                            'logFile' => $logFile,
-                        ]
-                    );
-
-                    // Wait for the worker to time out before creating a new one. Not 100% necessary, but keep
-                    // resources in check. User can optionally "Continue Now"
-                    if ($shouldWork) {
-                        $viewVars['refreshTimeout'] = $workerOptions->timeout + 3;
-                    }
-
-                    // Nothing to import, but it's trying to consume, so break out of an infinite loop of redirects.
-                    if (!$shouldWork && $shouldConsume) {
-                        $viewVars['refreshTimeout'] = null;
-                    }
-
-                    ee()->load->view('response-html', $viewVars);
+                    ee()->load->view('response-html', $this->queueStatus->fetch($importId)[$importId]);
                 }
             }
 
-            if (ee()->input->get('iframe') === 'yes' && $shouldWork) {
+            if ($shouldProduce) {
+                if (ee()->input->get('restart') === 'yes') {
+                    $dg->resetImport();
+                }
+
+                $dg->produceJobs();
+            }
+
+            if ($shouldCOnsume) {
+                $dg->consumeJobs();
+            }
+
+            if (!$dg->isImportComplete() || !$dg->isDeleteComplete()) {
                 $url = $this->getRefreshUrl($importId, [
                     'passkey' => $passKey,
                     'filename' => $fileName,
@@ -256,124 +215,13 @@ class Datagrab
                 echo sprintf('<meta http-equiv="refresh" content="%d;url=%s">', 0, $url);
             }
 
-        } catch (Error $exception) { // Catch EE Core exceptions
-            $this->importer->logger->log($exception->getMessage());
-            $this->importer->logger->log($exception->getTraceAsString());
+        } catch (Error $error) { // Catch EE Core exceptions
+            ee()->datagrab->logger->log($error->getMessage());
+            ee()->datagrab->logger->log($error->getTraceAsString());
         } catch (Exception $exception) { // Catch general exceptions
-            $this->importer->logger->log($exception->getMessage());
-            $this->importer->logger->log($exception->getTraceAsString());
+            ee()->datagrab->logger->log($exception->getMessage());
+            ee()->datagrab->logger->log($exception->getTraceAsString());
         }
-    }
-
-    public function run_endpoint()
-    {
-        $endpointName = ee()->input->get('endpoint');
-
-        $this->importer->logger->log(sprintf(
-            'Executing endpoint "%s".',
-            $endpointName
-        ));
-
-        $endpoint = ee('Model')->get('datagrab:Endpoint')
-            ->filter('name', $endpointName)
-            ->first();
-
-        if (!$endpoint) {
-            $this->importer->logger->log(sprintf(
-                'The requested endpoint "%s" was not found.',
-                $endpointName
-            ));
-
-            exit;
-        }
-
-        if (!$this->isEndpointAuthenticated($endpoint)) {
-            $this->importer->logger->log(sprintf(
-                'The requested endpoint "%s" was not successfully authenticated.',
-                $endpointName
-            ));
-
-            exit;
-        }
-
-        $this->loadImportSettings($endpoint->import_id);
-
-        $type = $this->settings['import']['type'];
-
-        $this->importer->setup(
-            $this->importer->datatypes[$this->settings['import']['type']],
-            $this->settings,
-        );
-
-        $postData = file_get_contents("php://input");
-
-        if (!$postData) {
-            $this->importer->logger->log(sprintf('%s can\'t find post body content from sender', $endpointName));
-            exit;
-        }
-
-        $result = $importer->datatypes[$type]->fetch($postData);
-
-        if ($result === -1) {
-            $this->importer->logger->log($importer->datatypes[$type]->getErrors());
-            exit;
-        }
-
-        $data = $importer->datatypes[$type]->getItems();
-
-        try {
-            ee()->output->enable_profiler(false);
-            $this->importer->produceEndpointJobs($data);
-
-            ee()->output->send_ajax_response([
-                'response' => 'success'
-            ]);
-        } catch (Error $exception) { // Catch EE Core exceptions
-            $this->importer->logger->log($exception->getMessage());
-            $this->importer->logger->log($exception->getTraceAsString());
-
-            ee()->output->send_ajax_response([
-                'response' => 'error',
-                'message' => $exception->getMessage(),
-            ]);
-        } catch (Exception $exception) { // Catch general exceptions
-            $this->importer->logger->log($exception->getMessage());
-            $this->importer->logger->log($exception->getTraceAsString());
-
-            ee()->output->send_ajax_response([
-                'response' => 'error',
-                'message' => $exception->getMessage(),
-            ]);
-        }
-    }
-
-    private function isEndpointAuthenticated(Endpoint $endpoint): bool
-    {
-        $authSettings = json_decode($endpoint->settings, true);
-        $authParams = $authSettings['auth_grid']['rows'] ?? [];
-
-        $requestParams = match($endpoint->auth_type) {
-            'headers' => getallheaders(),
-            'get' => $_GET,
-        };
-
-        $totalParams = count($authParams);
-        $matchedParams = [];
-
-        foreach ($authParams as $pair) {
-            if (
-                isset($requestParams[$pair['auth_name']]) &&
-                $requestParams[$pair['auth_name']] === $pair['auth_value']
-            ) {
-                $matchedParams[] = $pair['auth_name'];
-            }
-        }
-
-        if ($totalParams === count($matchedParams)) {
-            return true;
-        }
-
-        return false;
     }
 
     /**
@@ -435,10 +283,10 @@ class Datagrab
         $output = 0;
 
         if ($id) {
-            $this->importer->updateStatus('ABORTED', $id);
+            ee()->datagrab->updateStatus('ABORTED', $id);
 
-            $deleteQueue = $this->queueStatus->clear($this->importer->getDeleteQueueName($id));
-            $importQueue = $this->queueStatus->clear($this->importer->getImportQueueName($id));
+            $deleteQueue = $this->queueStatus->clear(ee()->datagrab->getDeleteQueueName($id));
+            $importQueue = $this->queueStatus->clear(ee()->datagrab->getImportQueueName($id));
 
             return $deleteQueue + $importQueue;
         }
@@ -460,18 +308,5 @@ class Datagrab
         ]);
 
         exit;
-    }
-
-    public function sort_imports()
-    {
-        $order = ee()->input->post('order', true);
-
-        foreach ($order as $index => $id) {
-            ee()->db
-                ->where('id', $id)
-                ->update('datagrab', [
-                    'order' => $index
-                ]);
-        }
     }
 }

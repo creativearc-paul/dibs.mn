@@ -90,14 +90,6 @@ return [
                 );
             }
 
-            if (strpos($filePath, 'Creator.php') !== false) {
-                $contents = str_replace(
-                    'static::setLastErrors(parent::getLastErrors());',
-                    'if (is_array(parent::getLastErrors())) { static::setLastErrors(parent::getLastErrors()); }',
-                    $contents
-                );
-            }
-
             return $contents;
         },
     ],

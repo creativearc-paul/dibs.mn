@@ -1,8 +1,5 @@
 <?php
 
-use BoldMinded\DataGrab\FieldTypes\AbstractFieldType;
-use BoldMinded\DataGrab\Service\Importer;
-
 /**
  * DataGrab cartthrob_order_items fieldtype class
  *
@@ -39,7 +36,7 @@ class Datagrab_cartthrob_order_items extends AbstractFieldType
         ];
     }
 
-    public function display_configuration(Importer $importer, string $fieldName, string $fieldLabel, string $fieldType, bool $fieldRequired = false, array $data = []): array
+    public function display_configuration(Datagrab_model $DG, string $fieldName, string $fieldLabel, string $fieldType, bool $fieldRequired = false, array $data = []): array
     {
         $extraExample = '
 
@@ -120,21 +117,27 @@ class Datagrab_cartthrob_order_items extends AbstractFieldType
         return $config;
     }
 
-    public function final_post_data(Importer $importer, array $item = [], int $fieldId = 0, string $fieldName = '', array &$data = [], int $updateEntryId = 0)
+    public function prepare_post_data(Datagrab_model $DG, array $item = [], int $fieldId = 0, string $fieldName = '', array &$data = [], int $updateEntryId = 0)
+    {
+    }
+
+    public function final_post_data(Datagrab_model $DG, array $item = [], int $fieldId = 0, string $fieldName = '', array &$data = [], int $updateEntryId = 0)
     {
         // Initialise data
         $data["field_id_" . $fieldId] = array();
         $first_row = 0;
 
         // Can the current datatype handle sub-loops (eg, XML)?
-        if ($importer->dataType->datatype_info["allow_subloop"]) {
+        if ($DG->dataType->datatype_info["allow_subloop"]) {
             // Check this field can be a sub-loop
             $count = $first_row;
-            if ($importer->dataType->initialise_sub_item()) {
+            if ($DG->dataType->initialise_sub_item(
+                $item, $DG->settings["cf"][$fieldName], $DG->settings, $fieldName
+            )) {
+
                 // Loop over sub items
-                while ($subitem = $importer->dataType->get_sub_item(
-                    $item, $importer->settings["cf"][$fieldName], $importer->settings, $fieldName)
-                ) {
+                while ($subitem = $DG->dataType->get_sub_item(
+                    $item, $DG->settings["cf"][$fieldName], $DG->settings, $fieldName)) {
                     $row = array(
                         "entry_id" => $subitem
                     );
@@ -149,10 +152,12 @@ class Datagrab_cartthrob_order_items extends AbstractFieldType
                 $count = $first_row;
                 $data["field_id_" . $fieldId][$count][$shortname] = "";
 
-                if ($importer->dataType->initialise_sub_item()) {
+                if ($DG->dataType->initialise_sub_item(
+                    $item, $DG->settings["cf"][$settingName], $DG->settings, $fieldName
+                )) {
 
-                    $subitem = $importer->dataType->get_sub_item(
-                        $item, $importer->settings["cf"][$settingName], $importer->settings, $fieldName
+                    $subitem = $DG->dataType->get_sub_item(
+                        $item, $DG->settings["cf"][$settingName], $DG->settings, $fieldName
                     );
 
                     $defaultValue = $this->defaultValues[$shortname] ?? null;
@@ -171,8 +176,8 @@ class Datagrab_cartthrob_order_items extends AbstractFieldType
                                 $data["field_id_" . $fieldId][$count++][$shortname] = $subitem;
                             }
 
-                            $subitem = $importer->dataType->get_sub_item(
-                                $item, $importer->settings["cf"][$fieldName], $importer->settings, $fieldName
+                            $subitem = $DG->dataType->get_sub_item(
+                                $item, $DG->settings["cf"][$fieldName], $DG->settings, $fieldName
                             );
                         }
                     }
@@ -181,18 +186,14 @@ class Datagrab_cartthrob_order_items extends AbstractFieldType
         }
     }
 
-    public function rebuild_post_data(Importer $importer, int $fieldId = 0, array &$data = [], array $entryData = [])
+    public function rebuild_post_data(Datagrab_model $DG, int $fieldId = 0, array &$data = [], array $existingData = [])
     {
-        // @todo this needs to return not by reference
-        $entry = ee('Model')->get('ChannelEntry')->filter('entry_id', $existingData["entry_id"])->first();
-
-        if ($entry) {
-            $fieldValues = $entry->getValues();
-            $orderItemsFieldValue = $fieldValues['field_id_' . $fieldId] ?? '';
-
-            if ($orderItemsFieldValue) {
-                $data['field_id_' . $fieldId] = unserialize(base64_decode($orderItemsFieldValue));
-            }
+        ee()->db->select("field_id_" . $fieldId);
+        ee()->db->where("entry_id", $existingData["entry_id"]);
+        $query = ee()->db->get("exp_channel_data");
+        if ($query->num_rows() > 0) {
+            $row = $query->row_array();
+            $data["field_id_" . $fieldId] = unserialize(base64_decode($row["field_id_" . $fieldId]));
         }
     }
 }

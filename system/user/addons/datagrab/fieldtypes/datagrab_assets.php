@@ -1,9 +1,5 @@
 <?php
 
-use BoldMinded\DataGrab\FieldTypes\AbstractFieldType;
-use BoldMinded\DataGrab\FieldTypes\ImportField;
-use BoldMinded\DataGrab\Service\Importer;
-
 /**
  * DataGrab Assets fieldtype class
  *
@@ -13,81 +9,75 @@ use BoldMinded\DataGrab\Service\Importer;
  */
 class Datagrab_assets extends AbstractFieldType
 {
-    public function finalPostData(ImportField $importField)
+
+    public function prepare_post_data(Datagrab_model $DG, array $item = [], int $fieldId = 0, string $fieldName = '', array &$data = [], int $updateEntryId = 0)
     {
-        $files = [];
+        $data["field_id_" . $fieldId] = array();
 
-        if ($importField->importer->dataType->initialise_sub_item()) {
-            while ($subitem = $importField->importer->dataType->get_sub_item(
-                $importField->importItem,
-                $importField->fieldImportConfig,
-                $importField->fieldSettings,
-                $importField->fieldName
-            )) {
+        // Can the current datatype handle sub-loops (eg, XML)?
+        if (
+            $DG->dataType->datatype_info["allow_subloop"] &&
+            $DG->dataType->initialise_sub_item($item, $DG->settings["cf"][$fieldName], $DG->settings, $fieldName)
+        ) {
+            // Loop over sub items
+            while ($subitem = $DG->dataType->get_sub_item(
+                $item, $DG->settings["cf"][$fieldName], $DG->settings, $fieldName)) {
+
                 if (preg_match('/{filedir_([0-9]+)}/', $subitem, $matches)) {
-                    $file = [
-                        'filedir' => $matches[1],
-                        'filename' => str_replace($matches[0], '', $subitem)
-                    ];
+                    $file = array(
+                        "filedir" => $matches[1],
+                        "filename" => str_replace($matches[0], '', $subitem)
+                    );
 
-                    ee()->db->select('file_id');
-                    ee()->db->where('file_name', $file['filename']);
-                    ee()->db->where('filedir_id', $file['filedir']);
-
-                    $query = ee()->db->get('exp_assets_files');
-
+                    ee()->db->select("file_id");
+                    ee()->db->where("file_name", $file["filename"]);
+                    ee()->db->where("filedir_id", $file["filedir"]);
+                    $query = ee()->db->get("exp_assets_files");
                     if ($query->num_rows() > 0) {
                         $row = $query->row_array();
-                        $files[] = $row['file_id'];
+                        $data["field_id_" . $fieldId][] = $row["file_id"];
                     }
                 } else {
-                    ee()->db->select('file_id');
-                    ee()->db->where('file_name', $subitem);
-                    $query = ee()->db->get('exp_assets_files');
-
+                    ee()->db->select("file_id");
+                    ee()->db->where("file_name", $subitem);
+                    $query = ee()->db->get("exp_assets_files");
                     if ($query->num_rows() > 0) {
                         $row = $query->row_array();
-                        $files[] = $row['file_id'];
+                        $data["field_id_" . $fieldId][] = $row["file_id"];
                     }
                 }
+
             }
         }
-
-        return $files;
     }
 
-    public function rebuildPostData(
-        Importer $importer,
-        int      $fieldId = 0,
-        array    $existingData = []
-    ) {
-        $returnData = [];
+    public function rebuild_post_data(Datagrab_model $DG, int $fieldId = 0, array &$data = [], array $existingData = [])
+    {
+        $data["field_id_" . $fieldId] = array();
 
-        $where = [
-            'entry_id' => $existingData['entry_id'],
+        $where = array(
+            'entry_id' => $existingData["entry_id"],
             'field_id' => $fieldId
-        ];
+        );
 
         // -------------------------------------------
-        //  'datagrab_rebuild_assets_query' hook
+        //  'ajw_datagrab_rebuild_assets_query' hook
         //
-        if ($importer->extensions->active_hook('datagrab_rebuild_assets_query')) {
-            $importer->logger->log('Calling datagrab_rebuild_assets_query() hook.');
-            $query = $importer->extensions->call('datagrab_rebuild_assets_query', $where);
+        if ($DG->extensions->active_hook('ajw_datagrab_rebuild_assets_query')) {
+            $DG->logger->log('Calling ajw_datagrab_rebuild_assets_query() hook.');
+            $query = $DG->extensions->call('ajw_datagrab_rebuild_assets_query', $where);
         } else {
-            ee()->db->select('file_id');
-            ee()->db->from('exp_assets_selections');
+            ee()->db->select("file_id");
+            ee()->db->from("exp_assets_selections");
             ee()->db->where($where);
-            ee()->db->order_by('sort_order');
+            ee()->db->order_by("sort_order");
             $query = ee()->db->get();
         }
         //
         // -------------------------------------------
 
         foreach ($query->result_array() as $row) {
-            $returnData[] = $row['file_id'];
+            $data["field_id_" . $fieldId][] = $row["file_id"];
         }
-
-        return $returnData;
     }
 }

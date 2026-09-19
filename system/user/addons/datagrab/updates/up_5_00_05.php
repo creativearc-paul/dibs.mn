@@ -30,10 +30,7 @@ class Update_5_00_05 extends AbstractUpdate
         $db = ee('db');
         $pre = $db->dbprefix;
 
-        if (
-            ee('db')->field_exists('delete_records', 'datagrab') &&
-            !ee('db')->field_exists('total_delete_records', 'datagrab')
-        ) {
+        if (ee('db')->field_exists('delete_records', 'datagrab')) {
             $db->query("ALTER TABLE `" . $pre . "datagrab` CHANGE COLUMN `delete_records` `total_delete_records` int unsigned default 0");
         }
 

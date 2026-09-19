@@ -1,5 +1,5 @@
 <?php
-// Build: {DATAGRAB_BUILD_VERSION}
+// Build: {LOGIT_BUILD_VERSION}
 require_once PATH_THIRD . 'datagrab/vendor-build/autoload.php';
 
 use BoldMinded\DataGrab\Dependency\Illuminate\Events\Dispatcher;
@@ -8,29 +8,23 @@ use BoldMinded\DataGrab\Dependency\Illuminate\Queue\WorkerOptions;
 use BoldMinded\DataGrab\Dependency\Illuminate\Database\Capsule\Manager as DatabaseCapsuleManager;
 use BoldMinded\DataGrab\Dependency\Illuminate\Queue\QueueManager;
 use BoldMinded\DataGrab\Dependency\Litzinger\Basee\Setting;
-use BoldMinded\DataGrab\Model\ImportStatus;
 use BoldMinded\DataGrab\Queue\Drivers\DatabaseDriver;
 use BoldMinded\DataGrab\Queue\Drivers\RedisDriver;
 use BoldMinded\DataGrab\Queue\Drivers\SQSDriver;
 use BoldMinded\DataGrab\Queue\Exceptions\QueueException;
 use BoldMinded\DataGrab\Queue\Subscribers\QueueSubscriber;
-use BoldMinded\DataGrab\Service\DataGrabLoader;
-use BoldMinded\DataGrab\Service\Importer;
-use BoldMinded\DataGrab\Service\Logger;
 use BoldMinded\DataGrab\Service\QueueStatus;
 
 if (!defined('DATAGRAB_NAME')) {
-    define('DATAGRAB_VERSION', '6.0.2');
-    define('DATAGRAB_BUILD_VERSION', 'f706f888');
+    define('DATAGRAB_NAME', 'DataGrab');
+    define('DATAGRAB_CLASS_NAME', 'datagrab');
+    define('DATAGRAB_VERSION', '5.0.5');
+    define('DATAGRAB_BUILD_VERSION', 'e9ea5e57');
 
     if (defined('BASE')) {
         define('DATAGRAB_URL', BASE . AMP . '?/cp/addons/settings/datagrab');
         define('DATAGRAB_PATH', '?/cp/addons/settings/datagrab');
     }
-
-    define('DATAGRAB_WORDPRESS', file_exists(PATH_THIRD . 'datagrab/config/wordpress'));
-    define('DATAGRAB_NAME', 'DataGrab' . (DATAGRAB_WORDPRESS ? ' (WordPress Edition)' : ''));
-    define('DATAGRAB_CLASS_NAME', 'datagrab');
 }
 
 return [
@@ -43,62 +37,19 @@ return [
     'settings_exist' => true,
 
     'requires' => [
-        'php'   => '8.2',
+        'php'   => '7.4',
         'ee'    => '6.4'
     ],
 
     'services.singletons' => [
-        'Importer' => function () {
-            ee()->load->library('addons');
-            ee()->load->library('logger');
-
-            $logger = new Logger(
-                ee()->logger,
-                ee()->config->item('datagrab_log_type'),
-                ee()->config->item('datagrab_log_file') ?: sprintf('%sDataGrab-import.log', PATH_CACHE)
-            );
-
-            if (isset(ee()->TMPL)) {
-                $template = ee()->TMPL;
-            } else {
-                ee()->load->library('template');
-                $template = ee()->template; // aka TMPL
-            }
-
-            $importer = new Importer(
-                addons: ee()->addons,
-                config: ee()->config,
-                extensions: ee()->extensions,
-                functions: ee()->functions,
-                session: ee()->session,
-                load: ee()->load,
-                template: $template,
-                db: ee()->db,
-                logger: $logger,
-                loader: new DataGrabLoader,
-                importStatus: new ImportStatus,
-                queueManager: ee('datagrab:QueueManager'),
-                queueWorker: ee('datagrab:QueueWorker'),
-                queueWorkerOptions: ee('datagrab:QueueWorkerOptions'),
-            );
-
-            $importer->initialise_types();
-
-            return $importer;
-        },
         'Setting' => function () {
             return new Setting('datagrab_settings');
         },
         'DatabaseConfig' => function () {
-            if (ee('Addon')->get('queue')?->isInstalled()) {
-                return ee('queue:DatabaseConfig');
-            }
-
             return  [
                 'driver' => 'mysql',
                 'host' => ee('db')->hostname,
                 'database' => ee('db')->database,
-                'port' => ee('db')->port,
                 'username' => ee('db')->username,
                 'password' => ee('db')->password,
                 'charset' => ee('db')->char_set,
@@ -107,20 +58,12 @@ return [
             ];
         },
         'DatabaseManager' => function ($provider) {
-            if (ee('Addon')->get('queue')?->isInstalled()) {
-                return ee('queue:DatabaseManager');
-            }
-
             $databaseManager = new DatabaseCapsuleManager;
             $databaseManager->addConnection($provider->make('DatabaseConfig'));
 
             return $databaseManager;
         },
         'QueueManager' => function ($provider) {
-            if (ee('Addon')->get('queue')?->isInstalled()) {
-                return ee('queue:QueueManager');
-            }
-
             $config = ee()->config->item('datagrab') ?: [];
 
             // @todo this is incomplete and unsupported
@@ -135,10 +78,6 @@ return [
             return (new DatabaseDriver($provider))->getQueueManager();
         },
         'QueueWorker' => function ($provider) {
-            if (ee('Addon')->get('queue')?->isInstalled()) {
-                return ee('queue:QueueWorker');
-            }
-
             /** @var QueueManager $queueManager */
             $queueManager = $provider->make('QueueManager');
 
@@ -154,12 +93,8 @@ return [
             );
         },
         'QueueWorkerOptions' => function () {
-            if (ee('Addon')->get('queue')?->isInstalled()) {
-                return ee('queue:QueueWorkerOptions');
-            }
-
             // Determine how long a worker can run without timing out based on the PHP settings.
-            $maxExecutionTime = (ini_get('max_execution_time') ?: 130) - 10;
+            $maxExecutionTime = (ini_get('max_execution_time') ?? 130) - 10;
 
             // Set minimum timeout, especially if PHP's CLI config does not have max_execution_time set.
             if ($maxExecutionTime < 30) {
@@ -183,11 +118,6 @@ return [
         'QueueStatus' => function () {
             return new QueueStatus();
         }
-    ],
-
-    'models' => [
-        'Import' => 'Model\Import',
-        'Endpoint' => 'Model\Endpoint',
     ],
 
     'commands' => [

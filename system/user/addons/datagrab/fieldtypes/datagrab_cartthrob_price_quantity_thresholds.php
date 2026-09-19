@@ -1,8 +1,5 @@
 <?php
 
-use BoldMinded\DataGrab\FieldTypes\AbstractFieldType;
-use BoldMinded\DataGrab\Service\Importer;
-
 /**
  * DataGrab cartthrob_price_quantity_thresholds fieldtype class
  *
@@ -20,7 +17,7 @@ class Datagrab_cartthrob_price_quantity_thresholds extends AbstractFieldType
         ];
     }
 
-    public function display_configuration(Importer $importer, string $fieldName, string $fieldLabel, string $fieldType, bool $fieldRequired = false, array $data = []): array
+    public function display_configuration(Datagrab_model $DG, string $fieldName, string $fieldLabel, string $fieldType, bool $fieldRequired = false, array $data = []): array
     {
         $config = [];
         $config["label"] = "<p>" .
@@ -51,7 +48,11 @@ class Datagrab_cartthrob_price_quantity_thresholds extends AbstractFieldType
         return $config;
     }
 
-    public function final_post_data(Importer $importer, array $item = [], int $fieldId = 0, string $fieldName = '', array &$data = [], int $updateEntryId = 0)
+    //public function prepare_post_data(Datagrab_model $DG, array $item = [], int $fieldId = 0, string $fieldName = '', array &$data = [], int $updateEntryId = 0)
+    //{
+    //}
+
+    public function final_post_data(Datagrab_model $DG, array $item = [], int $fieldId = 0, string $fieldName = '', array &$data = [], int $updateEntryId = 0)
     {
         /*
             [field_id_72] => Array
@@ -83,11 +84,11 @@ class Datagrab_cartthrob_price_quantity_thresholds extends AbstractFieldType
         // Is this an update?
         if ($updateEntryId) {
             // If so, is this the first update of this import?
-            if (in_array($updateEntryId, $importer->entries)) {
+            if (in_array($updateEntryId, $DG->entries)) {
                 $existing_data = array(
                     "entry_id" => $updateEntryId
                 );
-                $this->rebuild_post_data($importer, $fieldId, $data, $existing_data);
+                $this->rebuild_post_data($DG, $fieldId, $data, $existing_data);
                 $first_row = count($data["field_id_" . $fieldId]);
                 // $first_row = 0;
             } else {
@@ -102,14 +103,16 @@ class Datagrab_cartthrob_price_quantity_thresholds extends AbstractFieldType
         }
 
         // Can the current datatype handle sub-loops (eg, XML)?
-        if ($importer->dataType->datatype_info["allow_subloop"])
+        if ($DG->dataType->datatype_info["allow_subloop"])
         {
             // Check this field can be a sub-loop
             $count = $first_row;
-            if ($importer->dataType->initialise_sub_item()) {
+            if ($DG->dataType->initialise_sub_item(
+                $item, $DG->settings["cf"][$fieldName], $DG->settings, $fieldName)) {
+
                 // Loop over sub items
-                while ($subitem = $importer->dataType->get_sub_item(
-                    $item, $importer->settings["cf"][$fieldName], $importer->settings, $fieldName)) {
+                while ($subitem = $DG->dataType->get_sub_item(
+                    $item, $DG->settings["cf"][$fieldName], $DG->settings, $fieldName)) {
                     $row = array(
                         "price" => $subitem
                     );
@@ -118,17 +121,21 @@ class Datagrab_cartthrob_price_quantity_thresholds extends AbstractFieldType
             }
 
             $count = $first_row;
-            if ($importer->dataType->initialise_sub_item()) {
-                while ($subitem = $importer->dataType->get_sub_item(
-                    $item, $importer->settings["cf"][$fieldName . "_cartthrob_low"], $importer->settings, $fieldName)) {
+            if ($DG->dataType->initialise_sub_item(
+                $item, $DG->settings["cf"][$fieldName . "_cartthrob_low"], $DG->settings, $fieldName)) {
+
+                while ($subitem = $DG->dataType->get_sub_item(
+                    $item, $DG->settings["cf"][$fieldName . "_cartthrob_low"], $DG->settings, $fieldName)) {
                     $data["field_id_" . $fieldId][$count++]["from_quantity"] = $subitem;
                 }
             }
 
             $count = $first_row;
-            if ($importer->dataType->initialise_sub_item()) {
-                while ($subitem = $importer->dataType->get_sub_item(
-                    $item, $importer->settings["cf"][$fieldName . "_cartthrob_high"], $importer->settings, $fieldName)) {
+            if ($DG->dataType->initialise_sub_item(
+                $item, $DG->settings["cf"][$fieldName . "_cartthrob_high"], $DG->settings, $fieldName)) {
+
+                while ($subitem = $DG->dataType->get_sub_item(
+                    $item, $DG->settings["cf"][$fieldName . "_cartthrob_high"], $DG->settings, $fieldName)) {
                     $data["field_id_" . $fieldId][$count++]["up_to_quantity"] = $subitem;
                 }
 
@@ -136,19 +143,10 @@ class Datagrab_cartthrob_price_quantity_thresholds extends AbstractFieldType
         }
     }
 
-    public function rebuildPostData(
-        Importer $importer,
-        int      $fieldId = 0,
-        array    $existingData = [],
-        array    $entryData = []
-    ) {
-        // @todo
-    }
-
-    public function rebuild_post_data(Importer $importer, int $fieldId = 0, array &$data = [], array $entryData = [])
+    public function rebuild_post_data(Datagrab_model $DG, int $fieldId = 0, array &$data = [], array $existingData = [])
     {
         ee()->db->select("field_id_" . $fieldId);
-        ee()->db->where("entry_id", $entryData["entry_id"]);
+        ee()->db->where("entry_id", $existingData["entry_id"]);
         $query = ee()->db->get("exp_channel_data");
         if ($query->num_rows() > 0) {
             $row = $query->row_array();

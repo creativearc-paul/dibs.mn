@@ -1,7 +1,5 @@
 <?php
 
-use BoldMinded\DataGrab\Service\Importer;
-
 class DataGrabTranscribe extends AbstractModule implements ModuleInterface
 {
     public function getName(): string
@@ -14,7 +12,7 @@ class DataGrabTranscribe extends AbstractModule implements ModuleInterface
         return 'Transcribe';
     }
 
-    public function displayConfiguration(Importer $importer, array $data = []): array
+    public function displayConfiguration(Datagrab_model $DG, array $data = []): array
     {
         ee()->db->select('id, name');
         $query = ee()->db->get('exp_transcribe_languages');
@@ -47,7 +45,7 @@ class DataGrabTranscribe extends AbstractModule implements ModuleInterface
         ];
     }
 
-    public function saveConfiguration(Importer $importer): array
+    public function saveConfiguration(Datagrab_model $DG): array
     {
         $data = ee()->input->post($this->getName());
 
@@ -58,7 +56,7 @@ class DataGrabTranscribe extends AbstractModule implements ModuleInterface
         ];
     }
 
-    public function handle(Importer $importer, array &$data = [], array $item = [], array $custom_fields = [], string $action = '')
+    public function handle(Datagrab_model $DG, array &$data = [], array $item = [], array $custom_fields = [], string $action = '')
     {
         $onAction = $this->getSettingValue('execute_on_action');
 
@@ -71,13 +69,14 @@ class DataGrabTranscribe extends AbstractModule implements ModuleInterface
             $this->getSettingValue('transcribe_language') &&
             $this->getSettingValue('transcribe_language') !== 0
         ) {
-            $transcribe__transcribe_language = $importer->dataType->get_item($item, $this->getSettingValue('transcribe_language'));
-            $_POST["transcribe__transcribe_language"] = $transcribe__transcribe_language;
+            // $data["transcribe__transcribe_language"] = $DG->settings["config"]["ajw_transcribe_language"];
+            $_POST["transcribe__transcribe_language"] = $this->getSettingValue('transcribe_language');
+            $transcribe__transcribe_language = $this->getSettingValue('transcribe_language');
         } else {
             // Find default language
-            $importer->db->select("language_id");
-            $importer->db->where("site_id", $importer->config->item('site_id'));
-            $query = $importer->db->get("exp_transcribe_settings");
+            $DG->db->select("language_id");
+            $DG->db->where("site_id", $DG->config->item('site_id'));
+            $query = $DG->db->get("exp_transcribe_settings");
             $transcribe__transcribe_language = 0;
             if ($query->num_rows()) {
                 $row = $query->row_array();
@@ -92,14 +91,14 @@ class DataGrabTranscribe extends AbstractModule implements ModuleInterface
             $this->getSettingValue('transcribe_related_entry') !== ''
         ) {
             $field_id = $custom_fields[$this->getSettingValue('transcribe_related_entry')]["id"];
-            $rel_field_id = $importer->settings["cf"][$this->getSettingValue('transcribe_related_entry')];
+            $rel_field_id = $DG->settings["cf"][$this->getSettingValue('transcribe_related_entry')];
 
-            $importer->db->select('t.relationship_id');
-            $importer->db->from('exp_transcribe_entries_languages t');
-            $importer->db->join('exp_channel_data d', 'd.entry_id = t.entry_id');
-            $importer->db->where("field_id_" . $field_id, $importer->dataType->get_item($item, $rel_field_id));
-            $importer->db->where("language_id !=", $transcribe__transcribe_language);
-            $query = $importer->db->get();
+            $DG->db->select('t.relationship_id');
+            $DG->db->from('exp_transcribe_entries_languages t');
+            $DG->db->join('exp_channel_data d', 'd.entry_id = t.entry_id');
+            $DG->db->where("field_id_" . $field_id, $DG->dataType->get_item($item, $rel_field_id));
+            $DG->db->where("language_id !=", $transcribe__transcribe_language);
+            $query = $DG->db->get();
             if ($query->num_rows()) {
                 $row = $query->row_array();
                 $_POST["transcribe__transcribe_related_entries"] = $transcribe__transcribe_language . "__" . $row["relationship_id"];

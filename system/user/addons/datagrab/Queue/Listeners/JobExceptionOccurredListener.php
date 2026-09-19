@@ -8,7 +8,7 @@ class JobExceptionOccurredListener
 {
     public function handle(JobExceptionOccurred $event)
     {
-        ee('datagrab:Importer')->logger->log($event->exception->getMessage());
-        ee('datagrab:Importer')->logger->log($event->exception->getTraceAsString());
+        ee()->datagrab->logger->log($event->exception->getMessage());
+        ee()->datagrab->logger->log($event->exception->getTraceAsString());
     }
 }

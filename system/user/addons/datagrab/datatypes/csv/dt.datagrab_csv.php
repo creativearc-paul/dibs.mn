@@ -1,8 +1,5 @@
 <?php
 
-use BoldMinded\DataGrab\DataTypes\AbstractDataType;
-use BoldMinded\DataGrab\Dependency\League\Csv\Reader;
-
 /**
  * DataGrab CSV import class
  *
@@ -14,9 +11,7 @@ use BoldMinded\DataGrab\Dependency\League\Csv\Reader;
  */
 class Datagrab_csv extends AbstractDataType
 {
-    public string $type = 'CSV';
-
-    public array $datatype_info = [
+    public $datatype_info = [
         'name' => 'CSV',
         'version' => '1.0',
         'description' => 'Import data from a CSV file',
@@ -24,17 +19,21 @@ class Datagrab_csv extends AbstractDataType
         'allow_multiple_fields' => true
     ];
 
-    public array $settings = [
+    public $settings = [
         'filename' => '',
         'delimiter' => '',
         'encloser' => '',
         'skip' => 0,
     ];
 
+    public $sub_item_ptr;
+
     private $iterator = 0;
 
-    private array $columns = [];
-
+    /**
+     * @param array $values
+     * @return array[]
+     */
     public function settings_form(array $values = []): array
     {
         return [
@@ -72,8 +71,9 @@ class Datagrab_csv extends AbstractDataType
                 'desc' => 'If in doubt, or if the data has no encloser, use the default "',
                 'fields' => [
                     'encloser' => [
+                        'required' => true,
                         'type' => 'text',
-                        'value' => $this->get_value($values, 'encloser') ?: '',
+                        'value' => $this->get_value($values, 'encloser') ?: '"',
                     ]
                 ]
             ],
@@ -91,96 +91,123 @@ class Datagrab_csv extends AbstractDataType
         ];
     }
 
-    public function fetch(string $data = '')
+    public function fetch()
     {
+        if (!$this->getFilename()) {
+            $this->addError('You must supply a filename/url.');
+            return -1;
+        }
+
         // Open CSV file and save handle
         try {
-            if ($data !== '') {
-                $csv = $data;
-            } else {
-                if (!$this->getFilename()) {
-                    $this->addError('You must supply a filename/url.');
-                    return -1;
-                }
-
-                $content = $this->curlFetch($this->getFilename(), $this->settings['importId']);
-                $content = mb_convert_encoding($content, 'UTF-8', 'auto');
-                $content = preg_replace('/^\xEF\xBB\xBF/', '', $content); // Trim BOM if present
-
-                $csv = Reader::createFromString($content);
-
-                $csv->setDelimiter($this->getDelimiter());
-
-                $encloser = $this->getEncloser();
-                if ($encloser) {
-                    $csv->setEnclosure($encloser);
-                }
-
-                if ($this->settings['skip']) {
-                    $csv->setHeaderOffset(0);
-                }
+            // Not sure this ini_set is needed anymore, but keep it for backwards compatiblity
+            if (defined('PHP_MAJOR_VERSION') && PHP_MAJOR_VERSION < 8) {
+                ini_set('auto_detect_line_endings', true);
             }
+            $this->handle = fopen($this->getFilename(), "r");
         } catch (Exception $exception) {
-            $this->addError($exception->getMessage());
             return -1;
         }
 
-        if ($csv === false) {
-            $this->addError('Failed to read from file.');
+        if ($this->handle === false) {
+            $this->addError('Cannot open the file/url: ' . $this->getFilename());
             return -1;
         }
 
-        $csv_array = $csv->getRecords();
-
-        $this->columns = $csv->getHeader();
-
-        foreach ($csv_array as $row) {
-            $this->items[] = $row;
-            $this->itemsFlat[] = $row;
-        }
-
-        if (empty($this->items)) {
-            $this->addError('No items were found. Please check file type, url/path to the file.');
-            return -1;
-        }
-
-        return 1;
+        return $this->handle;
     }
 
-    private function getDelimiter(): string
+    public function total_rows_real()
     {
-        $delimiter = $this->settings['delimiter'] ?? ',';
-
-        if ($delimiter === 'TAB' || $delimiter === '\t') {
-            return "\t";
+        $rowCount=0;
+        if (($fp = fopen($this->getFilename(), 'r')) !== false) {
+            while (!feof($fp)) {
+                $data = $this->getCsv($fp);
+                if (empty($data) || $this->shouldSkip()) {
+                    continue; //empty row
+                }
+                $rowCount++;
+            }
+            fclose($fp);
         }
 
-        if ($delimiter === 'SPACE') {
-            return " ";
-        }
+        $this->iterator = 0;
 
-        return $delimiter;
+        return $rowCount;
     }
 
-    private function getEncloser()
+    private function getCsv($handle)
     {
-        return $this->settings['encloser'] ?? null;
+        return fgetcsv($handle, 0, $this->settings["delimiter"], $this->settings["encloser"]);
+    }
+
+    private function shouldSkip(): bool
+    {
+        // When configuring an import don't skip any rows.
+        if ($this->isConfigMode) {
+            return false;
+        }
+
+        $this->iterator++;
+        $skip = $this->settings['skip'] ?? 0;
+
+        if ($skip > 0 && $this->iterator <= $skip) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public function next()
+    {
+        if ($this->settings['delimiter'] === '\t' || $this->settings['delimiter'] === 'TAB') {
+            $this->settings['delimiter'] = "\t";
+        }
+
+        if ($this->settings['delimiter'] === 'SPACE') {
+            $this->settings['delimiter'] = " ";
+        }
+
+        if ($this->settings['encloser'] === '') {
+            $this->settings['encloser'] = '"';
+        }
+
+        // Get next line of CSV file
+        $item = $this->getCsv($this->handle);
+
+        if ($this->shouldSkip()) {
+            return true;
+        }
+
+        // Bug in fgetcsv, if the first character of a field is a special character it goes missing
+        // $line = fgets($this->handle, 10000);
+        // $item = $this->_csvstring_to_array($line, $this->settings["delimiter"], $this->settings["encloser"]);
+
+        // Make sure empty rows are not used
+        if (is_array($item) && count($item) == 1 && empty($item[0])) {
+            return false;
+        }
+
+        return $item;
     }
 
     public function fetch_columns(): array
     {
         try {
             $this->fetch();
+            $columns = $this->next();
 
             // Loop through fields, adding Column # and truncating any long labels
-            $titles = [];
+            $titles = array();
             $count = 0;
 
-            foreach ($this->columns as $title) {
-                if (strlen($title) > 32) {
-                    $title = substr($title, 0, 32) . "...";
+            if (is_array($columns)) {
+                foreach ($columns as $title) {
+                    if (strlen($title) > 32) {
+                        $title = substr($title, 0, 32) . "...";
+                    }
+                    $titles[] = "Column " . ++$count . " - eg, " . $title;
                 }
-                $titles[$title] = "Column " . ++$count . " - eg, " . $title;
             }
 
             return $titles;
@@ -192,16 +219,24 @@ class Datagrab_csv extends AbstractDataType
         return [];
     }
 
-    public function get_item(array $item, string $key): string
+    public function initialise_sub_item($item, $id, $config, $field)
     {
-        if (isset($item[$key])) {
-            return trim(stripcslashes($item[$key]));
+        // Reset sub loop
+        $this->sub_item_ptr = 0;
+
+        return true;
+    }
+
+    public function get_item($items, $id): string
+    {
+        if (isset($items[$id])) {
+            return trim(stripcslashes($items[$id]));
         }
 
         return '';
     }
 
-    public function get_sub_item(array $item, string $key, array $config = [], string $field = '', array $column = [])
+    public function get_sub_item($item, $id, $config, $field, array $column = [])
     {
         // Find delimiter (if set)
         $delimiter = ",";
@@ -209,8 +244,8 @@ class Datagrab_csv extends AbstractDataType
             $delimiter = $config["cf"][$field . "_delimiter"];
         }
 
-        // Find item and split into subitems
-        $item = $this->get_item($item, $key);
+        // Find item and split into sub items
+        $item = $this->get_item($item, $id);
 
         // Added for https://boldminded.com/support/ticket/2686
         $ignoreSubItems = ['text', 'textarea', 'rte', 'wygwam'];
@@ -287,8 +322,8 @@ class Datagrab_csv extends AbstractDataType
                 // Get all the contents of this column
                 $return[$row][] =
                     ($length > 0) ?
-                        str_replace($enclosure . $enclosure, $enclosure, substr($data, $last_pos, $length)) :
-                        '';
+                    str_replace($enclosure . $enclosure, $enclosure, substr($data, $last_pos, $length)) :
+                    '';
 
                 // And we're done
                 if ($done) {

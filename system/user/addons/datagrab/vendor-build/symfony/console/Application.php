@@ -125,7 +125,7 @@ class Application implements ResetInterface
      *
      * @throws \Exception When running fails. Bypass this when {@link setCatchExceptions()}.
      */
-    public function run(?InputInterface $input = null, ?OutputInterface $output = null)
+    public function run(InputInterface $input = null, OutputInterface $output = null)
     {
         if (\function_exists('putenv')) {
             @\putenv('LINES=' . $this->terminal->getHeight());
@@ -152,8 +152,8 @@ class Application implements ResetInterface
                 $phpHandler[0]->setExceptionHandler($errorHandler);
             }
         }
+        $this->configureIO($input, $output);
         try {
-            $this->configureIO($input, $output);
             $exitCode = $this->doRun($input, $output);
         } catch (\Exception $e) {
             if (!$this->catchExceptions) {
@@ -652,7 +652,7 @@ class Application implements ResetInterface
      *
      * @return Command[]
      */
-    public function all(?string $namespace = null)
+    public function all(string $namespace = null)
     {
         $this->init();
         if (null === $namespace) {
@@ -719,7 +719,7 @@ class Application implements ResetInterface
                 $len = 0;
             }
             if (\str_contains($message, "@anonymous\x00")) {
-                $message = \preg_replace_callback('/[a-zA-Z_\\x7f-\\xff][\\\\a-zA-Z0-9_\\x7f-\\xff]*+@anonymous\\x00.*?\\.php(?:0x?|:[0-9]++\\$)?[0-9a-fA-F]++/', function ($m) {
+                $message = \preg_replace_callback('/[a-zA-Z_\\x7f-\\xff][\\\\a-zA-Z0-9_\\x7f-\\xff]*+@anonymous\\x00.*?\\.php(?:0x?|:[0-9]++\\$)[0-9a-fA-F]++/', function ($m) {
                     return \class_exists($m[0], \false) ? ((\get_parent_class($m[0]) ?: \key(\class_implements($m[0]))) ?: 'class') . '@anonymous' : $m[0];
                 }, $message);
             }
@@ -950,7 +950,7 @@ class Application implements ResetInterface
      *
      * @return string
      */
-    public function extractNamespace(string $name, ?int $limit = null)
+    public function extractNamespace(string $name, int $limit = null)
     {
         $parts = \explode(':', $name, -1);
         return \implode(':', null === $limit ? $parts : \array_slice($parts, 0, $limit));

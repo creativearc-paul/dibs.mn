@@ -7,6 +7,7 @@ namespace BoldMinded\DataGrab\Dependency\Litzinger\Basee;
  * @package     ExpressionEngine
  * @category    Basee
  * @author      Brian Litzinger
+ * @copyright   Copyright (c) 2022 - BoldMinded, LLC
  * @link        https://github.com/litzinger/basee
  * @license     MIT
  */
@@ -134,10 +135,6 @@ class App
     public static function majorVersion() : int
     {
         $version = ee()->config->config['app_version'] ?? 0;
-        // If an add-on using this is present when EE is installed, it won't find the version.
-        if (\defined('INSTALLER') && INSTALLER === \true) {
-            return 0;
-        }
         if (\defined('APP_VER')) {
             $version = APP_VER;
         }
@@ -202,10 +199,7 @@ class App
         if (self::isLtEE6()) {
             return [self::userData('role_id')];
         }
-        if (isset(ee()->session) && ee()->session->getMember()) {
-            return ee()->session->getMember()->getAllRoles()->pluck('role_id');
-        }
-        return [];
+        return ee()->session->getMember()->getAllRoles()->pluck('role_id');
     }
     /**
      * Use a collection of native EE features and the version
@@ -229,16 +223,9 @@ class App
             'cloning' => '6.2.5',
             'revisionAlert' => '6.4',
             'newFileManager' => '7.1',
-            'fieldNameHints' => '7.4',
-            'categoryPermissions' => '7.4',
-            'generators' => '7.5',
-            'formValidation' => '7.5',
         ];
         if ($featureName === 'pro') {
             return \defined('IS_PRO') && IS_PRO;
-        }
-        if ($featureName === 'msm') {
-            return bool_config_item('multiple_sites_enabled');
         }
         if (\array_key_exists($featureName, $features)) {
             return \version_compare(APP_VER, $features[$featureName], '>=');
@@ -503,26 +490,12 @@ class App
         }
         return !empty(ee()->input->get('entry_ids')) && ee()->input->get('modal_form') === 'y' && ee()->input->get('field_id') && ee()->input->get('return');
     }
+    /**
+     * @return bool
+     */
     public static function isCloningRequest() : bool
     {
         return \defined('CLONING_MODE') && CLONING_MODE === \true;
-    }
-    public static function isActionRequest() : bool
-    {
-        return REQ === 'ACTION';
-    }
-    public static function isLivePreviewRequest() : bool
-    {
-        // EE6+ Live Preview request support
-        if (self::isGteEE6() && self::isActionRequest()) {
-            $action = ee('Model')->get('Action')->filter('class', 'Channel')->filter('method', 'live_preview')->first();
-            return $action->action_id && (int) ee()->input->get('ACT') === $action->action_id;
-        }
-        // Legacy/EE5 Live Preview request support
-        // Before we attempt to call the ee:LivePreview service lets make sure its available.
-        $isLivePreviewAvailable = self::isFeatureAvailable('livePreview');
-        $isLivePreviewRequestUri = \preg_grep('/cp\\/publish\\/preview\\/(\\d+)/', \array_keys($_REQUEST));
-        return $isLivePreviewAvailable && !empty($isLivePreviewRequestUri);
     }
     /**
      * @return bool

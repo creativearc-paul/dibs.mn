@@ -13,7 +13,8 @@ declare (strict_types=1);
 namespace BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Generator;
 
 /**
- * NameGeneratorFactory retrieves a default name generator, based on the environment
+ * NameGeneratorFactory retrieves a default name generator, based on the
+ * environment
  */
 class NameGeneratorFactory
 {

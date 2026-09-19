@@ -17,27 +17,34 @@ use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Exception\BuilderNotFoundExceptio
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Exception\UnableToBuildUuidException;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\UuidInterface;
 /**
- * FallbackBuilder builds a UUID by stepping through a list of UUID builders until a UUID can be constructed without exceptions
+ * FallbackBuilder builds a UUID by stepping through a list of UUID builders
+ * until a UUID can be constructed without exceptions
  *
- * @immutable
+ * @psalm-immutable
  */
 class FallbackBuilder implements UuidBuilderInterface
 {
     /**
-     * @param iterable<UuidBuilderInterface> $builders An array of UUID builders
+     * @var BuilderCollection
      */
-    public function __construct(private iterable $builders)
+    private $builders;
+    /**
+     * @param BuilderCollection $builders An array of UUID builders
+     */
+    public function __construct(BuilderCollection $builders)
     {
+        $this->builders = $builders;
     }
     /**
-     * Builds and returns a UuidInterface instance using the first builder that succeeds
+     * Builds and returns a UuidInterface instance using the first builder that
+     * succeeds
      *
      * @param CodecInterface $codec The codec to use for building this instance
      * @param string $bytes The byte string from which to construct a UUID
      *
      * @return UuidInterface an instance of a UUID object
      *
-     * @pure
+     * @psalm-pure
      */
     public function build(CodecInterface $codec, string $bytes) : UuidInterface
     {

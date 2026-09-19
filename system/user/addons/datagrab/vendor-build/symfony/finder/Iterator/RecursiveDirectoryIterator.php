@@ -26,7 +26,7 @@ class RecursiveDirectoryIterator extends \RecursiveDirectoryIterator
     /**
      * @var bool
      */
-    private $ignoreFirstRewind = \true;
+    private $rewindable;
     // these 3 properties take part of the performance optimization to avoid redoing the same work in all iterations
     private $rootPath;
     private $subPath;
@@ -62,8 +62,7 @@ class RecursiveDirectoryIterator extends \RecursiveDirectoryIterator
             $subPathname .= $this->directorySeparator;
         }
         $subPathname .= $this->getFilename();
-        $basePath = $this->rootPath;
-        if ('/' !== $basePath && !\str_ends_with($basePath, $this->directorySeparator) && !\str_ends_with($basePath, '/')) {
+        if ('/' !== ($basePath = $this->rootPath)) {
             $basePath .= $this->directorySeparator;
         }
         return new SplFileInfo($basePath . $subPathname, $this->subPath, $subPathname);
@@ -102,6 +101,7 @@ class RecursiveDirectoryIterator extends \RecursiveDirectoryIterator
                 // parent method will call the constructor with default arguments, so unreadable dirs won't be ignored anymore
                 $children->ignoreUnreadableDirs = $this->ignoreUnreadableDirs;
                 // performance optimization to avoid redoing the same work in all children
+                $children->rewindable =& $this->rewindable;
                 $children->rootPath = $this->rootPath;
             }
             return $children;
@@ -110,26 +110,35 @@ class RecursiveDirectoryIterator extends \RecursiveDirectoryIterator
         }
     }
     /**
-     * @return void
-     */
-    #[\ReturnTypeWillChange]
-    public function next()
-    {
-        $this->ignoreFirstRewind = \false;
-        parent::next();
-    }
-    /**
+     * Do nothing for non rewindable stream.
+     *
      * @return void
      */
     #[\ReturnTypeWillChange]
     public function rewind()
     {
-        // some streams like FTP are not rewindable, ignore the first rewind after creation,
-        // as newly created DirectoryIterator does not need to be rewound
-        if ($this->ignoreFirstRewind) {
-            $this->ignoreFirstRewind = \false;
+        if (\false === $this->isRewindable()) {
             return;
         }
         parent::rewind();
+    }
+    /**
+     * Checks if the stream is rewindable.
+     *
+     * @return bool
+     */
+    public function isRewindable()
+    {
+        if (null !== $this->rewindable) {
+            return $this->rewindable;
+        }
+        if (\false !== ($stream = @\opendir($this->getPath()))) {
+            $infos = \stream_get_meta_data($stream);
+            \closedir($stream);
+            if ($infos['seekable']) {
+                return $this->rewindable = \true;
+            }
+        }
+        return $this->rewindable = \false;
     }
 }

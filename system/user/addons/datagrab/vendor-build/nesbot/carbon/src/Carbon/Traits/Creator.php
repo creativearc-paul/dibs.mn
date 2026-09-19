@@ -79,7 +79,7 @@ trait Creator
         if (isset($locale)) {
             \setlocale(\LC_NUMERIC, $locale);
         }
-        if (is_array(parent::getLastErrors())) { static::setLastErrors(parent::getLastErrors()); }
+        static::setLastErrors(parent::getLastErrors());
     }
     /**
      * Get timezone from a datetime instance.

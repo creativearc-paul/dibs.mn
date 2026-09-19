@@ -10,7 +10,7 @@ class LoopingListener
     public function handle(Looping $event)
     {
         if ($event->queue !== 'delete') {
-            ee('datagrab:Importer')->updateStatus(ImportStatus::RUNNING);
+            ee()->datagrab->updateStatus(ImportStatus::RUNNING);
         }
     }
 }

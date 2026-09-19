@@ -221,7 +221,7 @@ class ImportStatus
         } elseif ($status === self::NEW) {
             return sprintf($template, 'draft', '');
         } elseif ($status === self::ABORTED) {
-            return sprintf($template, 'locked', '');
+            return sprintf($template, 'locked');
         }
 
         return sprintf($template, 'open', '');

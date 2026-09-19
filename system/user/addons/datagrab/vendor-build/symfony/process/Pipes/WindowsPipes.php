@@ -121,7 +121,7 @@ class WindowsPipes extends AbstractPipes
             if ($w) {
                 @\stream_select($r, $w, $e, 0, Process::TIMEOUT_PRECISION * 1000000.0);
             } elseif ($this->fileHandles) {
-                \usleep((int) (Process::TIMEOUT_PRECISION * 1000000.0));
+                \usleep(Process::TIMEOUT_PRECISION * 1000000.0);
             }
         }
         foreach ($this->fileHandles as $type => $fileHandle) {

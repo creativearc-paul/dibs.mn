@@ -23,19 +23,31 @@ use BoldMinded\DataGrab\Dependency\Psr\Container\NotFoundExceptionInterface;
  */
 trait ServiceLocatorTrait
 {
-    private array $loading = [];
-    private array $providedTypes;
+    private $factories;
+    private $loading = [];
+    private $providedTypes;
     /**
-     * @param array<string, callable> $factories
+     * @param callable[] $factories
      */
-    public function __construct(private array $factories)
+    public function __construct(array $factories)
     {
+        $this->factories = $factories;
     }
-    public function has(string $id) : bool
+    /**
+     * {@inheritdoc}
+     *
+     * @return bool
+     */
+    public function has(string $id)
     {
         return isset($this->factories[$id]);
     }
-    public function get(string $id) : mixed
+    /**
+     * {@inheritdoc}
+     *
+     * @return mixed
+     */
+    public function get(string $id)
     {
         if (!isset($this->factories[$id])) {
             throw $this->createNotFoundException($id);
@@ -53,9 +65,12 @@ trait ServiceLocatorTrait
             unset($this->loading[$id]);
         }
     }
+    /**
+     * {@inheritdoc}
+     */
     public function getProvidedServices() : array
     {
-        if (!isset($this->providedTypes)) {
+        if (null === $this->providedTypes) {
             $this->providedTypes = [];
             foreach ($this->factories as $name => $factory) {
                 if (!\is_callable($factory)) {

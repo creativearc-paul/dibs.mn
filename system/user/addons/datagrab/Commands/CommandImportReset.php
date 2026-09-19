@@ -59,7 +59,7 @@ class CommandImportReset extends Cli {
         }
 
         $row = $query->row_array();
-        $this->settings = json_decode($row["settings"], true);
+        $this->settings = unserialize($row["settings"]);
         $importName = $row['name'];
 
         if ($row["passkey"] != '' && $row["passkey"] != $passKey) {
@@ -73,7 +73,9 @@ class CommandImportReset extends Cli {
         // Initialise
         ee()->load->library('session');
         ee()->load->add_package_path(PATH_THIRD . 'datagrab');
+        ee()->load->model('datagrab_model', 'datagrab');
         ee()->lang->loadfile('datagrab');
+        ee()->datagrab->initialise_types();
 
         $this->settings['import']['id'] = $importId;
         $this->settings['import']['passkey'] = $passKey;
@@ -83,7 +85,7 @@ class CommandImportReset extends Cli {
         try {
             $this->output->outln('<<dim>>Resetting: ' . $importName .'... <<reset>>');
 
-            ee('datagrab:Importer')->resetImport($importId);
+            ee()->datagrab->resetImport($importId);
 
             $this->output->outln('<<green>>Import Reset<<reset>>');
         } catch (Error $error) { // Catch EE Core exceptions

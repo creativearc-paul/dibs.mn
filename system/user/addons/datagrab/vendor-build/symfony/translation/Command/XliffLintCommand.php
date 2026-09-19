@@ -38,7 +38,7 @@ class XliffLintCommand extends Command
     private $directoryIteratorProvider;
     private $isReadableProvider;
     private $requireStrictFileNames;
-    public function __construct(?string $name = null, ?callable $directoryIteratorProvider = null, ?callable $isReadableProvider = null, bool $requireStrictFileNames = \true)
+    public function __construct(string $name = null, callable $directoryIteratorProvider = null, callable $isReadableProvider = null, bool $requireStrictFileNames = \true)
     {
         parent::__construct($name);
         $this->directoryIteratorProvider = $directoryIteratorProvider;
@@ -93,7 +93,7 @@ EOF
         }
         return $this->display($io, $filesInfo);
     }
-    private function validate(string $content, ?string $file = null) : array
+    private function validate(string $content, string $file = null) : array
     {
         $errors = [];
         // Avoid: Warning DOMDocument::loadXML(): Empty string supplied as input

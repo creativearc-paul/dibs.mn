@@ -28,7 +28,7 @@ function serialize($data)
  * @param array|null $options
  * @return mixed
  */
-function unserialize($data, $options = null)
+function unserialize($data, array $options = null)
 {
     SerializableClosure::enterContext();
     $data = $options === null || \PHP_MAJOR_VERSION < 7 ? \unserialize($data) : \unserialize($data, $options);

@@ -2,8 +2,7 @@
 
 namespace BoldMinded\DataGrab\Service;
 
-use BoldMinded\DataGrab\Dependency\Illuminate\Contracts\Queue\Queue as DataGrabQueueContract;
-use BoldMinded\Queue\Dependency\Illuminate\Contracts\Queue\Queue as QueueContract;
+use BoldMinded\DataGrab\Dependency\Illuminate\Contracts\Queue\Queue;
 use BoldMinded\DataGrab\Model\ImportStatus;
 
 class QueueStatus
@@ -28,7 +27,6 @@ class QueueStatus
             'status'
         ]);
 
-
         if ($importId) {
             $query->where('id', $importId);
         }
@@ -39,15 +37,15 @@ class QueueStatus
         $collection = [];
 
         foreach ($result->result_array() as $import) {
-            $importQueueSize = $this->getQueueConnection()->size(ee('datagrab:Importer')->getImportQueueName($import['id']));
-            $deleteQueueSize = $this->getQueueConnection()->size(ee('datagrab:Importer')->getDeleteQueueName($import['id']));
+            $importQueueSize = $this->getQueueConnection()->size(ee()->datagrab->getImportQueueName($import['id']));
+            $deleteQueueSize = $this->getQueueConnection()->size(ee()->datagrab->getDeleteQueueName($import['id']));
 
             $import['display_status'] = ImportStatus::getDisplayStatus(
                 $import['id'],
-                $import['status'],
-                $import['last_record'],
-                $import['total_records'],
-                $import['error_records'],
+                $import["status"],
+                $import["last_record"],
+                $import["total_records"],
+                $import["error_records"],
                 $importQueueSize,
                 $deleteQueueSize
             );
@@ -73,8 +71,11 @@ class QueueStatus
     /**
      * @return \Illuminate\Contracts\Queue\Queue
      */
-    private function getQueueConnection(): DataGrabQueueContract|QueueContract
+    private function getQueueConnection(): Queue
     {
-        return ee('datagrab:QueueManager')->connection('default');
+        /** @var \BoldMinded\DataGrab\Dependency\Illuminate\Queue\QueueManager $queue */
+        $queue = ee('datagrab:QueueManager');
+
+        return $queue->connection('default');
     }
 }

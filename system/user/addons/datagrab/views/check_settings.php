@@ -12,6 +12,7 @@ echo $this->table->generate($rows);
 
 ?>
 
+
 <input type="submit" value="Configure import" class="btn action"/>
 
 <?php echo form_close(); ?>

@@ -15,7 +15,8 @@ namespace BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Generator;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Exception\RandomSourceException;
 use Throwable;
 /**
- * RandomBytesGenerator generates strings of random binary data using the built-in `random_bytes()` PHP function
+ * RandomBytesGenerator generates strings of random binary data using the
+ * built-in `random_bytes()` PHP function
  *
  * @link http://php.net/random_bytes random_bytes()
  */

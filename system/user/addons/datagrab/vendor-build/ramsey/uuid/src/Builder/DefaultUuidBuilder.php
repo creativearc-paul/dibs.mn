@@ -14,9 +14,9 @@ namespace BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Builder;
 
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Rfc4122\UuidBuilder as Rfc4122UuidBuilder;
 /**
- * @deprecated Please transition to {@see Rfc4122UuidBuilder}.
+ * @deprecated Transition to {@see Rfc4122UuidBuilder}.
  *
- * @immutable
+ * @psalm-immutable
  */
 class DefaultUuidBuilder extends Rfc4122UuidBuilder
 {

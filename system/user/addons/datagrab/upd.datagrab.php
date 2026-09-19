@@ -68,8 +68,8 @@ class Datagrab_upd
             $updater
                 ->setFilePath(PATH_THIRD . 'datagrab/updates')
                 ->setHookTemplate($this->hookTemplate)
-                ->fetchUpdates('3.0.3')
-                ->runUpdates();
+                ->getUpdate('4_00_00')
+                ->doUpdate();
 
             $this->updateVersion();
 
@@ -107,9 +107,8 @@ class Datagrab_upd
 
         ee()->load->dbforge();
         ee()->dbforge->drop_table('datagrab');
-        ee()->dbforge->drop_table('datagrab_endpoints');
-        ee()->dbforge->drop_table('datagrab_failed_jobs');
         ee()->dbforge->drop_table('datagrab_jobs');
+        ee()->dbforge->drop_table('datagrab_failed_jobs');
         ee()->dbforge->drop_table('datagrab_settings');
 
         ee('db')->where('class', 'Datagrab_ext')->delete('extensions');

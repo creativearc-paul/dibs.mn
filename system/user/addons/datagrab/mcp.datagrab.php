@@ -1,17 +1,9 @@
 <?php
 
-use BoldMinded\DataGrab\ControlPanel\ModalController;
-use BoldMinded\DataGrab\DataTypes\AbstractDataType;
-use BoldMinded\DataGrab\Dependency\Litzinger\Basee\App;
-use BoldMinded\DataGrab\Dependency\Litzinger\Basee\Version;
-use BoldMinded\DataGrab\Service\ConfigurationFactory;
+use BoldMinded\DataGrab\Dependency\Litzinger\Basee\Setting;
+use BoldMinded\DataGrab\Dependency\Litzinger\Basee\Ping;
 use BoldMinded\DataGrab\Service\DataGrabLoader;
 use BoldMinded\DataGrab\Model\ImportStatus;
-use ExpressionEngine\Service\Addon\Mcp;
-use ExpressionEngine\Service\Sidebar\BasicList;
-use ExpressionEngine\Service\Sidebar\FolderItem;
-use ExpressionEngine\Service\Sidebar\Header;
-use BoldMinded\DataGrab\Traits\FileUploadDestinations;
 
 /**
  * @package     ExpressionEngine
@@ -45,12 +37,8 @@ use BoldMinded\DataGrab\Traits\FileUploadDestinations;
  * source is null and void. Use of this software constitutes your agreement
  * to this clause.
  */
-class Datagrab_mcp extends Mcp
+class Datagrab_mcp
 {
-    use FileUploadDestinations;
-
-    protected $addon_name = 'datagrab';
-
     /**
      * @var DataGrabLoader
      */
@@ -58,89 +46,10 @@ class Datagrab_mcp extends Mcp
 
     private $settings;
 
-    private int|null $importId;
-
-    private bool $isWordpressEdition;
-
     function __construct()
     {
+        ee()->load->model('datagrab_model', 'datagrab');
         $this->loader = new DataGrabLoader;
-
-        $this->generateSidebar();
-        $this->loadCss('datagrab');
-
-        $this->isWordpressEdition = DATAGRAB_WORDPRESS;
-    }
-
-    private function generateSidebar()
-    {
-        $lastSegment = end(ee()->uri->rsegments);
-
-        /** @var Sidebar $sidebar */
-        $sidebar = ee('CP/Sidebar')->make();
-
-        /** @var Header $heading */
-        $heading = $sidebar->addHeader(
-            'Imports',
-            ee('CP/URL')->make('addons/settings/datagrab')
-        );
-
-        if (in_array($lastSegment, ['index', 'configure_import', 'settings', 'check_settings', 'save'])) {
-            $heading->isActive();
-        }
-
-        /** @var BasicList $list */
-        $list = $heading->addBasicList();
-        $steps = [
-            'settings',
-            'check_settings',
-            'configure_import',
-        ];
-        $isStep = in_array($lastSegment, $steps);
-        $importId = $this->getSession('id', true);
-
-        if ($isStep) {
-            foreach ($steps as $page) {
-                // Only make linkable if the import has been saved to the DB.
-                // Don't want users jumping around out of order.
-                if ($importId) {
-                    $url = ee('CP/URL')->make('addons/settings/datagrab/' . $page, ['id' => $importId]);
-                } else {
-                    $url = '#';
-                }
-
-                /** @var FolderItem $item */
-                $item = $list->addItem(lang('step_' . $page), $url);
-
-                if ($page === $lastSegment) {
-                    $item->isActive();
-                }
-            }
-        }
-
-        if (ee()->db->table_exists('datagrab_endpoints')) {
-            $heading = $sidebar->addHeader(
-                'Endpoints',
-                ee('CP/URL')->make('addons/settings/datagrab/endpoints')
-            );
-
-            $segments = ee()->uri->rsegments;
-            array_pop($segments);
-
-            if (str_contains(end($segments), 'endpoint')) {
-                $heading->isActive();
-            }
-        }
-
-        $sidebar->addHeader(
-            'Release Notes',
-            ee('CP/URL')->make('addons/settings/datagrab/releases')
-        );
-
-        $sidebar->addHeader(
-            'Documentation',
-            'https://docs.boldminded.com/datagrab/docs',
-        );
     }
 
     /**
@@ -183,44 +92,13 @@ class Datagrab_mcp extends Mcp
         return $url;
     }
 
-    /**
-     * Generates the mcp view for the controller action
-     *
-     * @param string $name
-     * @param array $vars
-     * @return array
-     */
-    private function renderView(string $fileName, array $vars = [], array $breadcrumbs = []): array
-    {
-        return [
-            'breadcrumb' => $breadcrumbs,
-            'body' => ee('View')->make('datagrab:' . $fileName)->render($vars)
-        ];
-    }
-
-    private function shouldUpgrade(): bool
-    {
-        /** @var \ExpressionEngine\Service\Addon\Addon $addon */
-        $addon = ee('Addon')->get('datagrab');
-        $installedVersion = $addon->getInstalledVersion();
-        $fileVersion = $addon->getVersion();
-
-        if (version_compare($fileVersion, $installedVersion, '>')) {
-            return true;
-        }
-
-        return false;
-    }
-
     public function index()
     {
-        if ($this->shouldUpgrade()) {
-            return $this->renderView('upgrade');
-        }
-
         // Clear session data
         $this->getSession('settings');
+
         $this->loadJavaScript('datagrab');
+        $this->loadCss('datagrab');
 
         ee()->view->cp_page_title = DATAGRAB_NAME;
 
@@ -230,175 +108,103 @@ class Datagrab_mcp extends Mcp
         ee()->load->library('relative_date');
 
         // Set data
-        $data['title'] = DATAGRAB_NAME;
-        $data['types'] = ee('datagrab:Importer')->fetch_datatype_names();
-        $data['isWordpressEdition'] = $this->isWordpressEdition;
+        $data['title'] = 'DataGrab';
+        $data['content'] = 'index';
+        $data['types'] = ee()->datagrab->fetch_datatype_names();
+
+        $query = ee()->db
+            ->select('id, name, description, passkey, status, last_record, total_records, total_delete_records, last_delete_record, last_run, settings')
+            ->where('site_id', ee()->config->item('site_id'))
+            ->order_by('name ASC')
+            ->get('exp_datagrab');
 
         ee()->javascript->set_global([
             'datagrab.fetch_queue_status' => $this->getActionUrl('fetch_queue_status'),
             'datagrab.purge_queue' => $this->getActionUrl('purge_queue'),
-            'datagrab.sort_imports' => $this->getActionUrl('sort_imports'),
         ]);
 
-        // @todo change to Table class and make sortable. See FilePicker->buildTableFromFileCollection for example.
-        // ee()->cp->add_js_script('ui', 'sortable');
-        $table = ee('CP/Table', [
-            'limit' => 0,
-            'autosort' => false,
-        ]);
-
-        $table->setColumns([
-            'Name' => ['encode' => false],
-            'Type' => ['encode' => false],
-            'Import' => ['encode' => false],
-            'Queue' => ['encode' => false],
-            'Status' => ['encode' => false],
-            'Last run',
-            'Manage'  => ['encode' => false],
-        ]);
-
-        $table->setNoResultsText(lang('no_results'));
+        $data['saved_imports'] = [];
 
         /** @var \BoldMinded\DataGrab\Dependency\Illuminate\Queue\QueueManager $queue */
         $queueConnection = ee('datagrab:QueueManager')->connection('default');
 
-        $modalController = new ModalController();
-        $rowData = [];
+        foreach ($query->result_array() as $row) {
+            $id = $row['id'];
+            $col = ['id' => $id];
 
-        $imports = ee('Model')->get('datagrab:Import')
-            ->filter('site_id', ee()->config->item('site_id'))
-            ->order('order', 'ASC')
-            ->order('name', 'ASC')
-            ->all();
+            $importSettings = unserialize($row['settings']);
+            $channel = $this->getChannel($importSettings['import']['channel'] ?? null);
 
-        foreach ($imports as $row) {
-            $id = $row->id;
-
-            $importSettings = json_decode($row->settings, true);
-            $channel = $this->getChannel($importSettings['import']['channel'] ?? 0);
-            $importType = $importSettings['import']['import_type'] ?? '';
-
-            $importName = $row->name;
-            $importDescription = $row->description;
-            $importStatus = $row->status;
-            $settingsUrl = ee('CP/URL')->make('addons/settings/datagrab/load', ['id' => $row->id]);
+            $importName = $row['name'];
+            $importDescription = $row['description'];
+            $importStatus = $row["status"];
+            $settingsUrl = ee('CP/URL')->make('addons/settings/datagrab/save', ['id' => $row["id"]]);
 
             $importAlert = '';
-            if (!$channel && $importType === 'entry') {
+            if (!$channel) {
                 $importAlert = ' <i class="fas fa-circle-exclamation" title="The channel assigned to this import no longer exists."></i>';
             }
 
+            $col['name'] = sprintf('<a href="%s" title="%s">%s</a>%s', $settingsUrl, $importDescription, $importName, $importAlert);
+
+            unset($row['description']);
+
             $queryParams = [];
 
-            if (isset($row->passkey) && $row->passkey !== '') {
-                $queryParams['passkey'] = $row->passkey;
+            if (isset($row['passkey']) && $row['passkey'] !== '') {
+                $queryParams['passkey'] = $row['passkey'];
             }
 
             $importUrl = $this->getActionUrl('run_action', $id, array_merge($queryParams, ['iframe' => 'yes']));
             $directUrl = $this->getActionUrl('run_action', $id, $queryParams);
-            // $debugUrl = $this->getActionUrl('run_action', $id, array_merge($queryParams, ['debug' => 'yes']));
 
-            if (ee('datagrab:Importer')->getDeleteQueueSize($id) > 0) {
+            if (ee()->datagrab->getDeleteQueueSize($id) > 0) {
                 $importStatus = ImportStatus::WAITING;
             }
 
-            $types = [
-                'wordpress' => 'fa-brands fa-wordpress-simple',
-                'wordpress_legacy' => 'fa-brands fa-wordpress-simple',
-                'json' => 'fas fa-brackets-curly',
-                'json_legacy' => 'fas fa-brackets-curly',
-                'csv' => 'fas fa-file-csv',
-                'csv_legacy' => 'fas fa-file-csv',
-                'xml' => 'fas fa-code',
-                'xml_legacy' => 'fas fa-code',
-            ];
+            $col['queue'] = '<div class="button-group button-group-xsmall">';
+            $col['queue'] .= '<a class="button button--default fas fa-sync disabled" title="' . ($importStatus === ImportStatus::WAITING ? 'Continue' : 'Start') . ' import" data-status="' . $importStatus . '" data-action="dg-sync" data-id="' . $row['id'] . '" href="#"><span class="hidden">Sync</span></a>';
+            $col['queue'] .= '<a class="button button--default fas fa-power-off disabled" title="Reset import" data-action="dg-reset" data-id="' . $row['id'] . '" href="' . ee('CP/URL')->make('addons/settings/datagrab/reset', ['id' => $row['id']]) . '"><span class="hidden">Reset Import</span></a>';
+            $col['queue'] .= '<a class="button button--default fas fa-trash-can-xmark disabled hidden" title="Purge Queue" data-action="dg-purge" data-id="' . $row['id'] . '" href="#"><span class="hidden">Purge Queue</span></a>';
+            $col['queue'] .= '</div>';
 
-            $colType = sprintf(
-                '<i class="%s"><span class="hidden">%s</span></i>',
-                $types[$importSettings['import']['type']] ?? '',
-                $importSettings['import']['type']
-            );
+            $col['queue_size'] = '<div class="queue-size" data-id="' . $row['id'] . '">' . ee()->datagrab->getImportQueueSize($id) . '</div>';
 
-            $colTitle = sprintf(
-                '<a href="%s" title="%s">%s</a>%s',
-                $settingsUrl,
-                $importDescription,
-                $importName,
-                $importAlert
-            );
-
-            $colActions = '<div class="button-group button-group-xsmall">';
-            $colActions .= '<a class="button button--default fas fa-sync disabled" title="' . ($importStatus === ImportStatus::WAITING ? 'Continue' : 'Start') . ' import" data-status="' . $importStatus . '" data-action="dg-sync" data-id="' . $id . '" href="#"><span class="hidden">Sync</span></a>';
-            $colActions .= '<a class="button button--default fas fa-power-off disabled" title="Reset import" data-action="dg-reset" data-id="' . $id . '" href="' . ee('CP/URL')->make('addons/settings/datagrab/reset', ['id' => $id]) . '"><span class="hidden">Reset Import</span></a>';
-            $colActions .= '<a class="button button--default fas fa-trash-can-xmark disabled hidden" title="Purge Queue" data-action="dg-purge" data-id="' . $id . '" href="#"><span class="hidden">Purge Queue</span></a>';
-            $colActions .= '</div>';
-
-            $colQueueSize = '<div class="queue-size" data-id="' . $row->id . '">' . ee('datagrab:Importer')->getImportQueueSize($id) . '</div>';
-
-            $colStatus = ImportStatus::getDisplayStatus(
+            $col['status'] = ImportStatus::getDisplayStatus(
                 $id,
-                $row->status,
-                $row->last_record ?? 0,
-                $row->total_records ?? 0,
-                $row->error_records ?? 0,
-                $queueConnection->size(ee('datagrab:Importer')->getImportQueueName($id)),
-                $queueConnection->size(ee('datagrab:Importer')->getDeleteQueueName($id))
+                $row['status'],
+                $row['last_record'] ?? 0,
+                $row['total_records'] ?? 0,
+                $row['error_records'] ?? 0,
+                $queueConnection->size(ee()->datagrab->getImportQueueName($id)),
+                $queueConnection->size(ee()->datagrab->getDeleteQueueName($id))
             );
 
-            $colStatus .= '<div class="import-progress"><div class="import-progress-bar" data-id="' . $id . '" data-src="' . $importUrl .'">
+            $col['status'] .= '<div class="import-progress"><div class="import-progress-bar" data-id="' . $id . '" data-src="' . $importUrl .'">
                 <div class="progress-bar">
-                    <div class="progress" style="width: '. ImportStatus::getPercentage($row->last_record, $row->total_records) .'%;"></div>
+                    <div class="progress" style="width: '. ImportStatus::getPercentage($row['last_record'], $row['total_records']) .'%;"></div>
                 </div>
             </div></div>';
 
-            $colLastRun = ee()->localize->human_time($row->last_run);
+            $col['last_run'] = ee()->localize->human_time($row["last_run"]);
 
-            $colToolbar = '<div class="button-group button-group-xsmall">';
-            $colToolbar .= '<a class="button button--default handle" title="Drag to reorder" href="#"><i class="icon--reorder"></i></a>';
-            $colToolbar .= '<a class="button button--default dropdown-toggle js-dropdown-toggle" data-dropdown-pos="bottom-end"><i class="fal fa-angle-down"></i></a>';
-            $colToolbar .= '<div class="dropdown" x-placement="bottom-end">';
-            $colToolbar .= '<a class="dropdown__link" title="Edit saved import name, description, and passkey" href="' . ee('CP/URL')->make('addons/settings/datagrab/load', ['id' => $id, 'redirect' => 'settings']) . '"><i class="fas fa-pencil"></i> Edit Settings</a>';
-            $colToolbar .= '<a class="dropdown__link" title="Edit import field configuration" href="' . ee('CP/URL')->make('addons/settings/datagrab/load', ['id' => $id]) . '"><i class="fas fa-cog"></i> Configure</a>';
-            $colToolbar .= '<a class="dropdown__link" title="Display URL to run import from outside Control Panel" onclick="alert(\'' . $directUrl . '\'); return false;" href="' . $directUrl . '"><i class="fas fa-hashtag"></i> Import URL</a>';
-            $colToolbar .= '<a class="dropdown__link" title="Clone import" href="' . ee('CP/URL')->make('addons/settings/datagrab/clone', ['id' => $id]) . '"><i class="fas fa-copy"></i> Clone</a>';
-            $colToolbar .= '<a class="dropdown__link dropdown__link--danger m-link" rel="modal-confirm-remove-'. $id .'" data-confirm="'. $importName .'"title="Delete saved import" href="#"><i class="fas fa-trash-alt"></i> Delete</a>';
-            // $col['toolbar'] .= '<a class="dropdown__link" title="Debug" href="' . $debugUrl . '">Debug</a>';
-            $colToolbar .= '</div>';
-            $colToolbar .= '</div>';
+            $col['toolbar'] = '<div class="button-group button-group-xsmall">';
+            $col['toolbar'] .= '<a class="button button--default fas fa-edit" title="Edit saved import name/description" href="' . ee('CP/URL')->make('addons/settings/datagrab/save', ['id' => $row['id']]) . '"><span class="hidden">Edit</span></a>';
+            $col['toolbar'] .= '<a class="button button--default fas fa-cog" title="Configure import" href="' . ee('CP/URL')->make('addons/settings/datagrab/load', ['id' => $row['id']]) . '"><span class="hidden">Configure</span></a>';
+            $col['toolbar'] .= '<a class="button button--default fas fa-hashtag" title="Display URL to run import from outside Control Panel" onclick="alert(\'' . $directUrl . '\'); return false;" href="' . $directUrl . '"><span class="hidden">Import URL</span></a>';
+            $col['toolbar'] .= '<a class="button button--default button--xsmall fas fa-copy" title="Clone import" href="' . ee('CP/URL')->make('addons/settings/datagrab/clone', ['id' => $row['id']]) . '"><span class="hidden">Clone Import</span></a>';
+            $col['toolbar'] .= '<a class="button button--default button--xsmall fas fa-trash-alt" title="Delete saved import" href="' . ee('CP/URL')->make('addons/settings/datagrab/delete', ['id' => $id]) . '"><span class="hidden">Delete</span></a>';
+            $col['toolbar'] .= '</div>';
 
-            $sortOrder = '<input type="hidden" name="order[]" value="' . $row->id .'">';
-
-            $column = [
-                $colTitle . $sortOrder,
-                $colType,
-                $colActions,
-                $colQueueSize,
-                $colStatus,
-                $colLastRun,
-                $colToolbar,
-            ];
-
-            $rowData[] = [
-                'attrs' => [],
-                'columns' => $column
-            ];
-
-            $modalController->create('modal-confirm-remove-' . $id, 'ee:_shared/modal_confirm_remove', [
-                'form_url' => ee('CP/URL')->make('addons/settings/datagrab/delete', ['id' => $id]),
-                'hidden' => ['id' => $id],
-                'checklist' => [['kind' => 'Import', 'desc' => $importName]]
-            ]);
+            $data['saved_imports'][$id] = $col;
         }
 
-        $table->setData($rowData);
-
-        $data['table'] = $table;
         $data['form_action'] = ee('CP/URL', 'addons/settings/datagrab/settings');
-        $data['releases_url'] = ee('CP/URL', 'addons/settings/datagrab/releases');
+        $data['license_url'] = ee('CP/URL', 'addons/settings/datagrab/license');
 
         $this->clearSession();
 
-        return $this->renderView('index', $data);
+        return ee()->load->view('_wrapper', $data, true);
     }
 
     /**
@@ -423,7 +229,6 @@ class Datagrab_mcp extends Mcp
     public function settings()
     {
         $this->getInput();
-        $this->loadJavaScript('settings');
 
         ee()->lang->loadfile('datagrab');
 
@@ -431,7 +236,7 @@ class Datagrab_mcp extends Mcp
         $query = ee()->db
             ->select('channel_id, channel_title')
             ->where('site_id', ee()->config->item('site_id'))
-            ->get('channels');
+            ->get('exp_channels');
 
         $channels = [];
         foreach ($query->result_array() as $row) {
@@ -439,8 +244,9 @@ class Datagrab_mcp extends Mcp
         }
 
         // Get settings form for type
+        ee()->datagrab->initialise_types();
         /** @var AbstractDataType $currentType */
-        $currentType = ee('datagrab:Importer')->datatypes[$this->settings['import']['type']] ?? null;
+        $currentType = ee()->datagrab->datatypes[$this->settings['import']['type']] ?? null;
 
         if (!$currentType) {
             ee()->functions->redirect(ee('CP/URL', 'addons/settings/datagrab')->compile());
@@ -448,38 +254,14 @@ class Datagrab_mcp extends Mcp
 
         $dataTypeSettings = $currentType->settings_form($this->settings) ?: [];
 
-        if (App::isLtEE7() || $this->isWordpressEdition) {
-            $importTypes = ['entry' => 'Entry'];
-        } else {
-            $importTypes = ['entry' => 'Entry', 'file' => 'File'];
-        }
-
         $sections = [
             [
                 'title' => $currentType->datatype_info['name'] . ' v' . $currentType->datatype_info['version'],
                 'desc' => $currentType->datatype_info['description']
             ],
             [
-                'title' => 'Import Type',
-                'desc' => 'Select which type of import to perform',
-                'attrs' => [
-                    'class' => 'js-dg-import-type',
-                ],
-                'fields' => [
-                    'import_type' => [
-                        'required' => true,
-                        'type' => 'select',
-                        'choices' => $importTypes,
-                        'value' => $this->settings['import']['import_type'] ?? 'entry',
-                    ],
-                ]
-            ],
-            [
                 'title' => 'Channel',
                 'desc' => 'Select the channel to import the data into',
-                'attrs' => [
-                    'class' => 'js-dg-import-channel hidden',
-                ],
                 'fields' => [
                     'channel' => [
                         'required' => true,
@@ -488,24 +270,7 @@ class Datagrab_mcp extends Mcp
                         'value' => $this->settings['import']['channel'] ?? '',
                     ],
                 ]
-            ],
-            [
-                'title' => 'File Directory',
-                'desc' => 'Select the directory to import files into',
-                'attrs' => [
-                    'class' => 'js-dg-import-file hidden',
-                ],
-                'fields' => [
-                    'file_directory' => [
-                        'required' => true,
-                        'type' => 'html',
-                        'content' => $this->buildFileUploadDropdown(
-                            fieldName: 'file_directory',
-                            defaultValue: $this->settings['import']['file_directory'] ?? '',
-                        ),
-                    ],
-                ]
-            ],
+            ]
         ];
 
         // Append additional settings for the requested datatype
@@ -513,11 +278,11 @@ class Datagrab_mcp extends Mcp
             $sections[] = $setting;
         }
 
-        $data['cp_page_title'] = '1. Import Settings';
+        $data['cp_page_title'] = 'Import Settings';
         $data['sections'] = [$sections];
         $data['base_url'] = ee('CP/URL')->make('addons/settings/datagrab/check_settings')->compile();
-        $data['save_btn_text'] = 'Check Settings';
-        $data['save_btn_text_working'] = 'Checking...';
+        $data['save_btn_text'] = 'save';
+        $data['save_btn_text_working'] = 'btn_saving';
         $data['form_hidden'] = [
             'datagrab_step' => 'settings',
         ];
@@ -526,7 +291,7 @@ class Datagrab_mcp extends Mcp
             'body' => ee('View')->make('ee:_shared/form')->render($data),
             'breadcrumb' => [
                 ee('CP/URL', 'addons/settings/datagrab')->compile() => ee()->lang->line('datagrab_module_name'),
-                ee('CP/URL', 'addons/settings/datagrab/settings')->compile() => '1. Import Settings',
+                ee('CP/URL', 'addons/settings/datagrab/settings')->compile() => 'Import Settings',
             ],
         ];
     }
@@ -535,71 +300,26 @@ class Datagrab_mcp extends Mcp
     {
         $this->getInput();
 
-        $data['id'] = $this->getImportId();
-        $data['cp_page_title'] = '2. Check Settings';
-        $data['sections'] = [$this->checkSettingsFields()];
-        $data['base_url'] = ee('CP/URL')->make('addons/settings/datagrab/configure_import')->compile();
-        $data['save_btn_text'] = 'Configure Import';
-        $data['save_btn_text_working'] = 'btn_saving';
-        $data['form_hidden'] = [
-            'datagrab_step' => 'check_settings',
-            'id' => $data['id'],
-        ];
+        $fields = [];
 
-        return [
-            'body' => ee('View')->make('ee:_shared/form')->render($data),
-            'breadcrumb' => [
-                ee('CP/URL', 'addons/settings/datagrab')->compile() => ee()->lang->line('datagrab_module_name'),
-                ee('CP/URL', 'addons/settings/datagrab/check_settings')->compile() => '2. Check Settings',
-            ],
-        ];
-    }
-
-    private function checkSettingsFields(): array
-    {
         try {
-            // https://boldminded.com/support/ticket/2940
-            if (
-                empty($this->settings) ||
-                !isset($this->settings['import']['type'])
-            ) {
-                $this->loadSettings();
-            }
-
-            $importType = $this->settings['import']['type'] ?? '';
+            ee()->datagrab->initialise_types();
             /** @var AbstractDataType $currentType */
-            $currentType = ee('datagrab:Importer')->datatypes[$importType] ?? null;
-
-            if (!$currentType) {
-                ee('datagrab:Importer')->logger->log(lang('datagrab_import_type_not_found'));
-                throw new Error(lang('datagrab_import_type_not_found'));
-            }
-
+            $currentType = ee()->datagrab->datatypes[$this->settings['import']['type']];
             $currentType->isConfigMode = true;
             $currentType->initialise($this->settings);
             $ret = $currentType->fetch();
-        } catch (Error $exception) {
-            ee('CP/Alert')->makeInline('datagrab-form')
+        } catch (Error $error) {
+            ee('CP/Alert')->makeInline('shared-form')
                 ->asIssue()
                 ->cannotClose()
                 ->withTitle(lang('datagrab_configuration_error'))
-                ->addToBody($exception->getMessage())
+                ->addToBody($error->getMessage())
                 ->addToBody(lang('datagrab_troubleshooting'))
                 ->now();
         }
 
-        if ($currentType === null) {
-            ee('CP/Alert')->makeInline('datagrab-form')
-                ->asIssue()
-                ->cannotClose()
-                ->withTitle(lang('datagrab_configuration_error'))
-                ->addToBody(lang('datagrab_troubleshooting_import_type'))
-                ->now();
-
-            ee('datagrab:Importer')->logger->log(sprintf('Import settings: %s', print_r($this->settings, true)));
-        }
-
-        if ($currentType && !empty($currentType->getErrors())) {
+        if (!empty($currentType->getErrors())) {
             ee('CP/Alert')->makeInline('shared-form')
                 ->asIssue()
                 ->cannotClose()
@@ -609,42 +329,57 @@ class Datagrab_mcp extends Mcp
                 ->now();
         }
 
-        $fields = [];
-
-        if ($currentType && $ret != -1) {
+        if ($ret != -1) {
             $titles = $currentType->fetch_columns();
-
-            if (empty($titles)) {
-                ee('CP/Alert')->makeInline('datagrab-form')
-                    ->asIssue()
-                    ->cannotClose()
-                    ->withTitle(lang('datagrab_configuration_error'))
-                    ->addToBody(sprintf(lang('datagrab_no_fields_found'), $currentType->type))
-                    ->now();
-            } else {
+            if ($titles != '') {
                 foreach ($titles as $value) {
                     $fields[] = array($value);
                 }
             }
         }
 
-        return [
+        $sections = [
             [
-                'title' => 'Fields',
-                'desc' => 'The following unique fields were found in your import file:',
-                'fields' => [
-                    'html' => [
-                        'type' => 'html',
-                        'content' => implode('<br />', array_column($fields, 0)),
+                [
+                    'title' => 'Fields',
+                    'desc' => 'The following fields were found in your import file:',
+                    'fields' => [
+                        'html' => [
+                            'type' => 'html',
+                            'content' => implode('<br />', array_column($fields, 0)),
+                        ]
                     ]
                 ]
-            ]
+            ],
+        ];
+
+        $data['cp_page_title'] = 'Check Settings';
+        $data['sections'] = $sections;
+        $data['base_url'] = ee('CP/URL')->make('addons/settings/datagrab/configure_import')->compile();
+        $data['save_btn_text'] = 'Configure Import';
+        $data['save_btn_text_working'] = $data['save_btn_text'];
+        $data['form_hidden'] = [
+            'datagrab_step' => 'check_settings',
+        ];
+
+        return [
+            'body' => ee('View')->make('ee:_shared/form')->render($data),
+            'breadcrumb' => [
+                ee('CP/URL', 'addons/settings/datagrab')->compile() => ee()->lang->line('datagrab_module_name'),
+                ee('CP/URL', 'addons/settings/datagrab/check_settings')->compile() => 'Check Settings',
+            ],
         ];
     }
 
-    private function configureFileImport($currentType, array $data = []): array
+    /**
+     * @todo This whole method needs refactored to support the new shared/form view
+     *
+     * @return array
+     */
+    public function configure_import()
     {
         $this->getInput();
+        $this->loadCss('datagrab');
 
         ee()->load->library('table');
         ee()->load->helper('form');
@@ -652,95 +387,8 @@ class Datagrab_mcp extends Mcp
         $importName = $this->getSession('name', true);
 
         $data['title'] = $importName ? sprintf('Configure Import: %s', $importName) : 'Configure Import';
-        $data['datatype_info'] = $currentType->datatype_info;
-        $data['datatype_settings'] = $currentType->settings;
-        $data['default_settings'] = $this->settings;
-        $data['data_fields'][''] = '';
+        $data['content'] = 'configure_import';
 
-        $currentType->isConfigMode = true;
-        $fields = $currentType->fetch_columns();
-
-        if (is_array($fields)) {
-            foreach ($fields as $key => $value) {
-                $data['data_fields'][$key] = $value;
-            }
-        }
-
-        $data['cf_config'] = [];
-
-        $handler = $this->loader->loadFieldTypeHandler('file', true);
-
-        $data['cf_config'][] = $handler->display_configuration(
-            ee('datagrab:Importer'),
-            'import_file',
-            'File',
-            'file',
-            true,
-            $data
-        );
-
-        $data['category_groups'] = [];
-        $data['import_directory_name'] = '';
-
-        $uploadDirectoryId = $data['default_settings']['import']['file_directory'] ?? null;
-
-        if ($uploadDirectoryId) {
-            $directory = $this->getUploadDirectory($uploadDirectoryId);
-            $destination = $this->getUploadDestination($directory->upload_location_id);
-
-            $data['import_directory_name'] = $directory->title;
-
-            foreach ($destination->getCategoryGroups() as $row) {
-                $data['category_groups'][$row->group_id] = $row->group_name;
-            }
-        }
-
-        $data['data_fields'][''] = '';
-        $currentType->isConfigMode = true;
-        $fields = $currentType->fetch_columns();
-        if (is_array($fields)) {
-            foreach ($fields as $key => $value) {
-                $data['data_fields'][$key] = $value;
-            }
-        }
-
-        // Get list of authors
-        // @todo: filter this list by member groups
-        $data['authors'] = [];
-
-        ee()->db->select('member_id, screen_name');
-        $query = ee()->db->get('exp_members');
-        if ($query->num_rows() > 0) {
-            foreach ($query->result_array() as $row) {
-                $data['authors'][$row['member_id']] = $row['screen_name'];
-            }
-        }
-
-        $data['author_fields'] = array(
-            'member_id' => 'ID',
-            'username' => 'Username',
-            'screen_name' => 'Screen Name',
-            'email' => 'Email address'
-        );
-
-        ee()->db->select('m_field_id, m_field_label');
-        ee()->db->from('exp_member_fields');
-        ee()->db->order_by('m_field_order ASC');
-        $query = ee()->db->get();
-        if ($query->num_rows() > 0) {
-            $memberFields = [];
-            foreach ($query->result_array() as $row) {
-                $memberFields['m_field_id_' . $row['m_field_id']] = $row['m_field_label'];
-            }
-            $data['author_fields']['Custom Fields'] = $memberFields;
-        }
-
-        return $data;
-    }
-
-    private function configureChannelImport($currentType, array $data = []): array
-    {
-        /** @var \ExpressionEngine\Model\Channel\Channel $channel */
         $channel = $this->getChannel();
 
         if (!$channel) {
@@ -765,22 +413,32 @@ class Datagrab_mcp extends Mcp
 
         foreach ($channel->getAllCustomFields() as $field) {
             $data['custom_fields'][$field->field_name] = $field->field_label;
+            $data['unique_fields'][$field->field_name] = $field->field_label;
             $data['field_types'][$field->field_name] = $field->field_type;
             $data['field_settings'][$field->field_name] = $field->field_settings;
             $data['field_required'][$field->field_name] = $field->field_required;
-
-            // Filter out complex types that can't easily do a scalar comparison
-            if (!in_array(
-                $field->field_type,
-                ['grid', 'relationship', 'fluid_field', 'bloqs', 'file_grid', 'ansel'])
-            ) {
-                $data['unique_fields'][$field->field_name] = $field->field_label;
-            }
         }
 
         $data['category_groups'] = [];
         foreach ($channel->getCategoryGroups() as $row) {
             $data['category_groups'][$row->group_id] = $row->group_name;
+        }
+
+        try {
+            // Get list of fields from the datatype
+            ee()->datagrab->initialise_types();
+            /** @var AbstractDataType $currentType */
+            $currentType = ee()->datagrab->datatypes[$this->settings['import']['type']];
+            $currentType->initialise($this->settings);
+            $currentType->fetch();
+        } catch (Error $error) {
+            ee('CP/Alert')->makeInline('shared-form')
+                ->asIssue()
+                ->cannotClose()
+                ->withTitle(lang('datagrab_configuration_error'))
+                ->addToBody($error->getMessage())
+                ->addToBody(lang('datagrab_troubleshooting'))
+                ->now();
         }
 
         $data['data_fields'][''] = '';
@@ -824,11 +482,15 @@ class Datagrab_mcp extends Mcp
         }
 
         // Get statuses
-        $data['status_fields'] = array_filter(array_merge(
-            ['default' => 'Channel default'],
-            $channel->Statuses->getDictionary('status', 'status'),
-            $data['data_fields']
-        ));
+        $data['status_fields'] = array(
+            'default' => 'Channel default'
+        );
+
+        foreach ($channel->Statuses as $row) {
+            $data['status_fields'][$row->status] = $row->status;
+        }
+
+        $data['status_fields'] = array_merge($data['status_fields'], $data['data_fields']);
 
         // Allow comments - check datatype ?
         $allowComments = $currentType->datatype_info['allow_comments'] ?? false;
@@ -843,7 +505,7 @@ class Datagrab_mcp extends Mcp
             $data['cm_config'][$handler->getDisplayName()] =
                 $handler
                     ->setSettings($this->settings)
-                    ->displayConfiguration(ee('datagrab:Importer'), $data);
+                    ->displayConfiguration(ee()->datagrab, $data);
         }
 
         $data['all_fields'] = [];
@@ -868,9 +530,6 @@ class Datagrab_mcp extends Mcp
                 }
             }
         }
-
-        $data['datatype_info'] = $currentType->datatype_info;
-        $data['datatype_settings'] = $currentType->settings;
         $data['default_settings'] = $this->settings;
         $data['cf_config'] = [];
 
@@ -884,14 +543,23 @@ class Datagrab_mcp extends Mcp
 
             if ($handler) {
                 $data['cf_config'][] = $handler->display_configuration(
-                    ee('datagrab:Importer'),
-                    $field_name,
-                    $field_label,
-                    $fieldType,
-                    $fieldRequired,
-                    $data
+                    ee()->datagrab, $field_name, $field_label, $fieldType, $fieldRequired, $data
                 );
             }
+        }
+
+        $data['datatype_info'] = $currentType->datatype_info;
+        $data['datatype_settings'] = $currentType->settings;
+
+        // Form action URLs
+        $data['form_action'] = ee('CP/URL', 'addons/settings/datagrab/save');
+        $data['back_link'] = ee('CP/URL')->make('addons/settings/datagrab/settings');
+        $data['form_hidden'] = [
+            'datagrab_step' => 'configure_import',
+        ];
+
+        if (ee()->input->get('id')) {
+            $data['id'] = ee()->input->get('id');
         }
 
         if (!empty($currentType->getErrors())) {
@@ -904,319 +572,206 @@ class Datagrab_mcp extends Mcp
                 ->now();
         }
 
-        return $data;
-    }
-
-    /**
-     * @return array
-     */
-    public function configure_import(): array
-    {
-        $this->getInput();
-        $this->loadJavaScript('configure');
-
-        ee()->load->library('table');
-        ee()->load->helper('form');
-
-        $importType = $this->settings['import']['import_type'] ?? 'entry';
-        $importName = $this->getSession('name', true);
-
-        $data['title'] = $importName ? sprintf('Configure Import: <b>%s</b>', $importName) : 'Configure Import';
-        $data['content'] = 'configure_import';
-        $data['importType'] = $importType;
-
-        try {
-            // Get list of fields from the datatype
-            /** @var AbstractDataType $currentType */
-            $currentType = ee('datagrab:Importer')->datatypes[$this->settings['import']['type']];
-            $currentType->initialise($this->settings);
-            $currentType->fetch();
-        } catch (Exception $exception) {
-            ee('CP/Alert')->makeInline('datagrab-form')
-                ->asIssue()
-                ->cannotClose()
-                ->withTitle(lang('datagrab_configuration_error'))
-                ->addToBody($exception->getMessage())
-                ->addToBody(lang('datagrab_troubleshooting'))
-                ->now();
-        }
-
-        $import = ee('Model')->get('datagrab:Import')
-            ->filter('id', $this->getImportId())
-            ->first();
-
-        $legacySettings = $import?->settings_legacy ? unserialize($import->settings_legacy) : '';
-
-        if ($importType === 'file') {
-            $data = $this->configureFileImport($currentType, $data);
-
-            $data['legacySettings'] = $legacySettings;
-            $data['fieldSets'] = [];
-
-            $configurationFactory = new ConfigurationFactory(
-                allowComments: $data['allow_comments'] ?? false,
-                authors: $data['authors'] ?? [],
-                authorFields: $data['author_fields'] ?? [],
-                categoryGroups: $data['category_groups'] ?? [],
-                customFields: $data['cf_config'] ?? [],
-                dataFields: $data['data_fields'] ?? [],
-                defaultSettings: $data['default_settings']['config'] ?? [],
-                importId: $this->getImportId(),
-                statusFields: $data['status_fields'] ?? [],
-                uniqueFields: $data['unique_fields'] ?? [],
-            );
-
-            $data['checkSettings'][] = ee('View')
-                ->make('ee:_shared/form/section')
-                ->render([
-                    'name' => 'fieldset_group',
-                    'settings' => $this->checkSettingsFields()
-                ]);
-
-            $data['fieldSets'][] = ee('View')
-                ->make('ee:_shared/form/section')
-                ->render([
-                    'name' => 'Import Properties',
-                    'settings' => $configurationFactory->fieldSetImportProperties()
-                ]);
-
-            $data['fieldSets'][] = ee('View')
-                ->make('ee:_shared/form/section')
-                ->render([
-                    'name' => 'Default Entry Fields',
-                    'settings' => $configurationFactory->fieldSetFileDefault()
-                ]);
-
-            $data['fieldSets'][] = ee('View')
-                ->make('ee:_shared/form/section')
-                ->render([
-                    'name' => 'Custom File Fields',
-                    'settings' => $configurationFactory->fieldSetCustom()
-                ]);
-
-            $data['fieldSets'][] = ee('View')
-                ->make('ee:_shared/form/section')
-                ->render([
-                    'name' => 'Categories',
-                    'settings' => $configurationFactory->fieldSetCategories()
-                ]);
-
-            $data['fieldSets'][] = ee('View')
-                ->make('ee:_shared/form/section')
-                ->render([
-                    'name' => 'Additional Options',
-                    'settings' => $configurationFactory->fieldSetAdditionalOptions()
-                ]);
-        } else {
-            $data = $this->configureChannelImport($currentType, $data);
-
-            $data['legacySettings'] = $legacySettings;
-            $data['fieldSets'] = [];
-
-            $configurationFactory = new ConfigurationFactory(
-                allowComments: $data['allow_comments'] ?? false,
-                authors: $data['authors'] ?? [],
-                authorFields: $data['author_fields'] ?? [],
-                categoryGroups: $data['category_groups'] ?? [],
-                customFields: $data['cf_config'] ?? [],
-                dataFields: $data['data_fields'] ?? [],
-                defaultSettings: $data['default_settings']['config'] ?? [],
-                importId: $this->getImportId(),
-                statusFields: $data['status_fields'] ?? [],
-                uniqueFields: $data['unique_fields'] ?? [],
-            );
-
-            $data['checkSettings'][] = ee('View')
-                ->make('ee:_shared/form/section')
-                ->render([
-                    'name' => 'fieldset_group',
-                    'settings' => $this->checkSettingsFields()
-                ]);
-
-            $data['fieldSets'][] = ee('View')
-                ->make('ee:_shared/form/section')
-                ->render([
-                    'name' => 'Import Properties',
-                    'settings' => $configurationFactory->fieldSetImportProperties()
-                ]);
-
-            $data['fieldSets'][] = ee('View')
-                ->make('ee:_shared/form/section')
-                ->render([
-                    'name' => 'Default Entry Fields',
-                    'settings' => $configurationFactory->fieldSetDefault()
-                ]);
-
-            $data['fieldSets'][] = ee('View')
-                ->make('ee:_shared/form/section')
-                ->render([
-                    'name' => 'Custom Entry Fields',
-                    'settings' => $configurationFactory->fieldSetCustom()
-                ]);
-
-            if (isset($data['cm_config'])) {
-                foreach ($data['cm_config'] as $moduleName => $moduleSettings) {
-                    $data['fieldSets'][] = ee('View')
-                        ->make('ee:_shared/form/section')
-                        ->render([
-                            'name' => $moduleName,
-                            'settings' => $moduleSettings
-                        ]);
-                }
-            }
-
-            $data['fieldSets'][] = ee('View')
-                ->make('ee:_shared/form/section')
-                ->render([
-                    'name' => 'Categories',
-                    'settings' => $configurationFactory->fieldSetCategories()
-                ]);
-
-            $data['fieldSets'][] = ee('View')
-                ->make('ee:_shared/form/section')
-                ->render([
-                    'name' => 'Handle Duplicates',
-                    'settings' => $configurationFactory->fieldSetHandleDuplicates()
-                ]);
-
-            $data['fieldSets'][] = ee('View')
-                ->make('ee:_shared/form/section')
-                ->render([
-                    'name' => 'Comments',
-                    'settings' => $configurationFactory->fieldSetComments()
-                ]);
-
-            $data['fieldSets'][] = ee('View')
-                ->make('ee:_shared/form/section')
-                ->render([
-                    'name' => 'Additional Options',
-                    'settings' => $configurationFactory->fieldSetAdditionalOptions()
-                ]);
-        }
-
-        // Form action URLs
-        $data['form_action'] = ee('CP/URL', 'addons/settings/datagrab/save_configuration');
-        $data['back_link'] = ee('CP/URL')->make('addons/settings/datagrab/settings', ['id' => $this->getImportId()]);
-        $data['form_hidden'] = [
-            'datagrab_step' => 'configure_import',
-            'id' => $this->getImportId(),
-        ];
-
-        $data['importFormat'] = $this->settings['import']['type'] ?? 'entry';
-        $data['importType'] = $this->settings['import']['import_type'] ?? 'entry';
-
         return [
             'body' => ee()->load->view('_wrapper', $data, true),
             'breadcrumb' => [
                 ee('CP/URL', 'addons/settings/datagrab')->compile() => ee()->lang->line('datagrab_module_name'),
-                ee('CP/URL', 'addons/settings/datagrab/configure_import')->compile() => '3. Configure Import',
+                ee('CP/URL', 'addons/settings/datagrab/configure_import')->compile() => 'Configure Import',
             ],
         ];
     }
 
-    public function save_configuration()
+    public function save()
+    {
+        $this->getInput();
+
+        $id = $this->settings['import']['id'] ?? ee()->input->get_post('id', 0);
+
+        // Set data
+        if ($id == 0) {
+            $data['title'] = 'Save import';
+            $name = '';
+            $description = '';
+            $passkey = '';
+        } else {
+            $data['title'] = 'Update import';
+
+            ee()->db->where('id', $id);
+            $query = ee()->db->get('exp_datagrab');
+            $row = $query->row_array();
+
+            $name = $row['name'] ?? '';
+            $description = $row['description'] ?? '';
+            $passkey = $row['passkey'] ?? '';
+        }
+
+        $passKeyField = form_input(
+                [
+                    'name' => 'passkey',
+                    'id' => 'passkey',
+                    'value' => $passkey,
+                ]
+            ) . '<br />' .
+            form_button(
+                [
+                    'id' => 'generate',
+                    'name' => 'generate',
+                    'content' => 'Generate random key',
+                    'class' => 'button button--secondary button--small'
+                ]
+            );
+
+        $sections = [
+            [
+                [
+                    'title' => 'Name',
+                    'desc' => 'A title for the import',
+                    'fields' => [
+                        'name' => [
+                            'required' => true,
+                            'type' => 'text',
+                            'value' => $name,
+                        ]
+                    ]
+                ],
+                [
+                    'title' => 'Description',
+                    'desc' => 'A description of the import',
+                    'fields' => [
+                        'description' => [
+                            'type' => 'textarea',
+                            'value' => $description,
+                        ]
+                    ]
+                ],
+                [
+                    'title' => 'Passkey',
+                    'desc' => 'Add an optional passkey to increase security against saved imports being run inadvertently',
+                    'fields' => [
+                        'passkey' => [
+                            'type' => 'html',
+                            'content' => $passKeyField,
+                        ]
+                    ]
+                ],
+            ],
+        ];
+
+        $data['cp_page_title'] = 'Save Import';
+        $data['sections'] = $sections;
+        $data['base_url'] = ee('CP/URL')->make('addons/settings/datagrab/do_save');
+        $data['save_btn_text'] = 'save';
+        $data['save_btn_text_working'] = 'btn_saving';
+        $data['form_hidden'] = [
+            'id' => $id,
+        ];
+
+        ee()->load->library('javascript');
+        ee()->javascript->output('
+            var chars = "0123456789ABCDEF";
+            var string_length = 32;
+        $("#generate").click( function() {
+            var randomstring = "";
+            for (var i=0; i<string_length; i++) {
+                var rnum = Math.floor(Math.random() * chars.length);
+                randomstring += chars.substring(rnum,rnum+1);
+            }
+            $("#passkey").val(randomstring);
+        });
+        ');
+        ee()->javascript->compile();
+
+        // Load view
+        return [
+            'body' => ee('View')->make('ee:_shared/form')->render($data),
+            'breadcrumb' => [
+                ee('CP/URL', 'addons/settings/datagrab')->compile() => ee()->lang->line('datagrab_module_name'),
+                ee('CP/URL', 'addons/settings/datagrab/import')->compile() => 'Save Import',
+            ],
+            'heading' => 'Save import'
+        ];
+    }
+
+    public function do_save()
     {
         $this->getInput();
 
         ee()->load->helper('date');
 
-        $importId = $this->getImportId();
-        // Import props are saved under this array key as to avoid collision
-        // with fields that could also be named "name", "description", which
-        // are pretty common custom field names. This is only necessary after
-        // moving the import props fields the main config page to avoid an
-        // extra step in the save process.
-        $importProps = ee()->input->post('dg_import_props');
+        $id = ee()->input->post('id');
 
         $data = [
-            'name' => $importProps['name'] ?? '',
-            'description' => $importProps['description'] ?? '',
-            'passkey' => $importProps['passkey'] ?? '',
-            'migration' => $importProps['migration'] ?? 0,
-            'last_run' => now(),
+            'name' => ee()->input->post('name'),
+            'description' => ee()->input->post('description'),
+            'passkey' => ee()->input->post('passkey'),
+            'last_run' => now()
         ];
 
         if (isset($this->settings['import']['type'])) {
-            $data['settings'] = json_encode($this->settings);
+            $data['settings'] = serialize($this->settings);
         } else {
             // Fetch settings from database
             ee()->db->select('settings');
-            ee()->db->where('id', $importId);
-            $query = ee()->db->get('datagrab');
+            ee()->db->where('id', $id);
+            $query = ee()->db->get('exp_datagrab');
             $row = $query->row_array();
             $data['settings'] = $row['settings'];
-            $this->settings = json_decode($data['settings'], true);
+            $this->settings = unserialize($data['settings']);
         }
 
-        $data['site_id'] = ee()->config->item('site_id');
+        // Get site_id from channel label
+        ee()->db->select('site_id');
+        if (is_numeric($this->settings['import']['channel'])) {
+            ee()->db->where('channel_id', $this->settings['import']['channel']);
+        } else {
+            ee()->db->where('channel_name', $this->settings['import']['channel']);
+            ee()->db->where('site_id', ee()->config->item('site_id'));
+        }
 
-        if (!$importId) {
+        $query = ee()->db->get('exp_channels');
+        $channelDefaults = $query->row_array();
+        $data['site_id'] = $channelDefaults['site_id'];
+
+        if (!$id) {
             ee()->db->insert('datagrab', array_merge($data, [
                 'status' => ImportStatus::NEW,
             ]));
 
-            $importId = ee()->db->insert_id();
+            $id = ee()->db->insert_id();
 
-            $this->settings['import']['id'] = $importId;
-            $data['settings'] = json_encode($this->settings);
+            $this->settings['import']['id'] = $id;
+            $data['settings'] = serialize($this->settings);
         }
 
-        ee()->db->where('id', $importId);
+        ee()->db->where('id', $id);
         ee()->db->update('datagrab', $data);
 
-        $alertMessage = '';
-
-        if (ee()->input->post('migration')) {
-            $alertMessage = 'Migration created';
-        }
-
-        $props = ee()->input->post('dg_import_props');
-
-        $alert = ee('CP/Alert');
-        $alert
-            ->makeInline('shared-form')
-            ->asSuccess()
-            ->withTitle(sprintf('<i>%s</i> import saved.', $props['name']))
-            ->addToBody($alertMessage)
-            ->defer();
+        ee()->session->set_flashdata('message_success', 'Import saved.');
 
         ee()->functions->redirect(ee('CP/URL')->make('addons/settings/datagrab'));
+
     }
 
     public function load()
     {
-        $this->loadSettings();
-        $page = 'configure_import';
-
-        if (ee('Request')->get('redirect')) {
-            $page = ee('Request')->get('redirect');
-        }
-
-        ee()->functions->redirect(ee('CP/URL')->make('addons/settings/datagrab/' . $page, [
-            'id' => ee()->input->get('id')
-        ]));
-    }
-
-    private function loadSettings()
-    {
-        $id = ee()->input->get('id');
-
-        if ($id) {
+        if (ee()->input->get('id')) {
             /** @var CI_DB_result $query */
-            $query = ee('db')->where('id', $id)->get('datagrab');
+            $query = ee('db')->where('id', ee()->input->get('id'))->get('datagrab');
             $row = $query->row_array();
-            $this->settings = json_decode($row['settings'], true);
-            $this->settings['import']['id'] = $id;
-            $this->setSession('settings', json_encode($this->settings));
+            $this->settings = unserialize($row['settings']);
+            $this->settings['import']['id'] = ee()->input->get('id');
+            $this->setSession('settings', serialize($this->settings));
             $this->setSession('name', $row['name']);
-            $this->setSession('id', $id);
+            $this->setSession('id', ee()->input->get('id'));
         }
+
+        ee()->functions->redirect(ee('CP/URL')->make('addons/settings/datagrab/configure_import'));
     }
 
     public function reset()
     {
         if (ee()->input->get('id')) {
-            ee('datagrab:Importer')->resetImport(ee()->input->get('id'), true);
+            ee()->datagrab->resetImport(ee()->input->get('id'), true);
         }
 
         ee()->functions->redirect(ee('CP/URL')->make('addons/settings/datagrab'));
@@ -1251,9 +806,9 @@ class Datagrab_mcp extends Mcp
 
             $newId = $db->insert_id();
 
-            $this->settings = json_decode($row['settings'], true);
+            $this->settings = unserialize($row['settings']);
             $this->settings['import']['id'] = $newId;
-            $this->setSession('settings', json_encode($this->settings));
+            $this->setSession('settings', serialize($this->settings));
             $this->setSession('name', $name);
             $this->setSession('id', $newId);
         }
@@ -1261,21 +816,81 @@ class Datagrab_mcp extends Mcp
         ee()->functions->redirect(ee('CP/URL')->make('addons/settings/datagrab/configure_import'));
     }
 
+    /**
+     * @deprecated In favor of executing the imports via the ACT url in an iframe on the add-on index page
+     */
+    public function run()
+    {
+        if (ee()->input->get('id') != 0) {
+            ee()->db->where('id', ee()->input->get('id'));
+            $query = ee()->db->get('exp_datagrab');
+            $row = $query->row_array();
+            $this->settings = unserialize($row['settings']);
+            $this->settings['import']['id'] = ee()->input->get('id');
+            $this->setSession('settings', serialize($this->settings));
+            $this->setSession('name', $row['name']);
+            $this->setSession('id', ee()->input->get('id'));
+        }
+
+        if (ee()->input->get('batch') == 'yes') {
+            ee()->functions->redirect(ee('CP/URL')->make('addons/settings/datagrab/import', array('batch' => 'yes')));
+        } else {
+            ee()->functions->redirect(ee('CP/URL')->make('addons/settings/datagrab/import', array('id' => $row['id'])));
+        }
+    }
+
     function delete()
+    {
+        $id = ee()->input->get('id');
+
+        $query = ee()->db
+            ->select('name')
+            ->where('id', $id)
+            ->get('datagrab');
+
+        $sections = [
+            [
+                [
+                    'title' => 'Are you sure?',
+                    'desc' => 'Really really sure?',
+                    'fields' => [
+                        'name' => [
+                            'type' => 'html',
+                            'content' => $query->row('name') ?? 'Rut roh raggy!',
+                        ]
+                    ]
+                ],
+            ],
+        ];
+
+        $data['cp_page_title'] = 'Delete Import';
+        $data['sections'] = $sections;
+        $data['base_url'] = ee('CP/URL')->make('addons/settings/datagrab/do_delete');
+        $data['save_btn_text'] = 'delete';
+        $data['save_btn_text_working'] = 'btn_working';
+        $data['form_hidden'] = [
+            'id' => $id,
+        ];
+
+        return [
+            'body' => ee('View')->make('ee:_shared/form')->render($data),
+            'breadcrumb' => [
+                ee('CP/URL', 'addons/settings/datagrab')->compile() => ee()->lang->line('datagrab_module_name'),
+            ],
+            'heading' => 'Delete Import'
+        ];
+    }
+
+    function do_delete()
     {
         $id = ee()->input->post('id');
 
         if ($id != '' && $id != '0') {
-            $import = ee('Model')->get('datagrab:Import', $id)->first();
-            $import->delete();
-
-            ee('CP/Alert')->makeInline('shared-form')
-                ->asSuccess()
-                ->cannotClose()
-                ->withTitle(lang('success'))
-                ->addToBody(sprintf('%s deleted', $import->name))
-                ->defer();
+            ee()->db->where('id', $id);
+            ee()->db->delete('exp_datagrab');
         }
+
+        ee()->session->set_flashdata('message_success', 'Deleted');
 
         ee()->functions->redirect(ee('CP/URL')->make('addons/settings/datagrab'));
     }
@@ -1334,17 +949,6 @@ class Datagrab_mcp extends Mcp
         $_SESSION[DATAGRAB_NAME] = [];
     }
 
-    private function getImportId(): int
-    {
-        $getPostImportId = ee()->input->get_post('id');
-
-        if ($getPostImportId) {
-            return (int) $getPostImportId;
-        }
-
-        return (int) $this->getSession('id', true);
-    }
-
     /**
      * Handle input from forms, sessions
      *
@@ -1357,10 +961,10 @@ class Datagrab_mcp extends Mcp
     {
         // Grab them before they're erased and SESSION is reset
         $importName = $this->getSession('name', true);
-        $this->importId = $this->getImportId();
+        $importId = $this->getSession('id', true);
 
         // Get current settings from session
-        $this->settings = json_decode($this->getSession('settings'), true) ?: [];
+        $this->settings = unserialize($this->getSession('settings')) ?: [];
         $datagrabStep = ee()->input->get_post('datagrab_step', 'default');
 
         switch ($datagrabStep) {
@@ -1373,20 +977,12 @@ class Datagrab_mcp extends Mcp
             // Step 2: set up datatype
             case 'settings':
             {
-                $importType = ee()->input->get_post('import_type');
-
-                $this->settings['import']['import_type'] = $importType;
-
-                if ($importType === 'file') {
-                    $this->settings['import']['file_directory'] = ee()->input->get_post('file_directory_filedir');
-                } else {
-                    $this->settings['import']['channel'] = ee()->input->get_post('channel');
-                }
-
+                $this->settings['import']['channel'] = ee()->input->get_post('channel');
                 // Check datatype specific settings
                 if (isset($this->settings['import']['type']) && $this->settings['import']['type'] != '') {
+                    ee()->datagrab->initialise_types();
                     /** @var AbstractDataType $currentType */
-                    $currentType = ee('datagrab:Importer')->datatypes[$this->settings['import']['type']];
+                    $currentType = ee()->datagrab->datatypes[$this->settings['import']['type']];
                     $dataTypeSettings = $currentType->settings;
                     foreach ($dataTypeSettings as $option => $value) {
                         if (ee()->input->get_post($option) !== false) {
@@ -1394,7 +990,6 @@ class Datagrab_mcp extends Mcp
                         }
                     }
                 }
-
                 break;
             }
             case 'configure_import':
@@ -1408,7 +1003,6 @@ class Datagrab_mcp extends Mcp
                     'author_field',
                     'author_check',
                     'offset',
-                    'limit',
                     'title',
                     'title_suffix',
                     'url_title',
@@ -1427,7 +1021,7 @@ class Datagrab_mcp extends Mcp
                     'cat_sub_delimiter',
                     'cat_allow_numeric_names',
                     'id',
-                    'entry_status',
+                    'status',
                     'update_status',
                     'import_comments',
                     'comment_author',
@@ -1485,27 +1079,8 @@ class Datagrab_mcp extends Mcp
                     }
                 }
 
-                if (
-                    isset($this->settings['import']['import_type']) &&
-                    $this->settings['import']['import_type'] === 'file'
-                ) {
-                    $this->settings['cf'] = [];
-
-                    if (ee()->input->post('import_file') !== false) {
-                        $this->settings['cf']['import_file'] = ee()->input->post('import_file');
-                    }
-
-                    $handler = $this->loader->loadFieldTypeHandler('file');
-
-                    $this->settings['cf']['import_file'] = $handler->save_configuration(
-                        ee('datagrab:Importer'),
-                        'import_file',
-                        $this->settings['cf']['import_file']
-                    );
-                } else if (
-                    isset($this->settings['import']['channel']) &&
-                    $this->settings['import']['channel'] != ''
-                ) {
+                // Check for custom field settings
+                if (isset($this->settings['import']['channel']) && $this->settings['import']['channel'] != '') {
                     $this->settings['cf'] = [];
                     $channel = ee('Model')->get('Channel', $this->settings['import']['channel'])->first();
 
@@ -1517,22 +1092,28 @@ class Datagrab_mcp extends Mcp
 
                         $handler = $this->loader->loadFieldTypeHandler($row->field_type);
 
-                        if (!$handler) {
-                            $handler = $this->loader->loadFieldTypeHandler('default');
-                        }
+                        if ($handler) {
+                            $this->settings['cf'][$row->field_name] = $handler->save_configuration(
+                                ee()->datagrab,
+                                $row->field_name,
+                                $this->settings['cf']
+                            );
 
-                        $this->settings['cf'][$row->field_name] = $handler->save_configuration(
-                            ee('datagrab:Importer'),
-                            $row->field_name,
-                            $this->settings['cf'][$row->field_name]
-                        );
+                            $typeSettings = $handler->register_setting($row->field_name);
+
+                            foreach ($typeSettings as $fld) {
+                                if (ee()->input->post($fld) !== false) {
+                                    $this->settings['cf'][$fld] = ee()->input->post($fld);
+                                }
+                            }
+                        }
                     }
                 }
 
                 // Load up any custom config tables for 3rd party add-ons
                 $moduleHandlers = $this->loader->fetchModuleHandlers();
                 foreach ($moduleHandlers as $handler) {
-                    $this->settings['cm'][$handler->getName()] = $handler->saveConfiguration(ee('datagrab:Importer'));
+                    $this->settings['cm'][$handler->getName()] = $handler->saveConfiguration(ee()->datagrab);
                 }
 
                 break;
@@ -1540,46 +1121,104 @@ class Datagrab_mcp extends Mcp
         }
 
         // Get saved import id
-        if (ee()->input->get_post('id')) {
+        if (ee()->input->get('id')) {
             $this->settings['import']['id'] = ee()->input->get_post('id');
         }
 
         // Store settings in session
-        $this->setSession('settings', json_encode($this->settings));
+        $this->setSession('settings', serialize($this->settings));
         $this->setSession('name', $importName);
-        $this->setSession('id', $this->importId);
+        $this->setSession('id', $importId);
     }
 
-    public function releases()
+    /**
+     * @param $method
+     * @param array $params
+     * @return null|string
+     */
+    private function getAction($method, $params = [])
     {
-        $version = new Version();
-        $allVersions = $version->setAddon('datagrab')->fetchAll();
+        $cacheKey = $method . md5(serialize($params));
 
-        $releases = [];
-
-        foreach ($allVersions as $version) {
-            $releases[] = [
-                'date' => $version->dateFormatted,
-                'version' => $version->version,
-                'notes' => html_entity_decode($version->notes),
-                'isNew' => version_compare($version->version, DATAGRAB_VERSION, '>'),
-                'currentVersion' => DATAGRAB_VERSION,
-            ];
+        if (isset($this->cache[$cacheKey])) {
+            return $this->cache[$cacheKey];
         }
 
-        $vars['releases'] = $releases;
+        $action = ee('Model')->get('ee:Action')
+            ->filter('class', 'reel')
+            ->filter('method', $method)
+            ->first();
 
-        $vars['message'] = ee('CP/Alert')->makeInline('datagrab-releases')
-            ->asAttention()
-            ->cannotClose()
-            ->withTitle('Stay up-to-date!')
-            ->addToBody('The latest version of '. DATAGRAB_NAME .' can be downloaded from your <a href="https://boldminded.com/account/licenses">BoldMinded account</a> or <a href="https://expressionengine.com/store/licenses-add-ons">ExpressionEngine.com</a>')
-            ->render();
+        if (!$action) {
+            return null;
+        }
 
-        return $this->renderView('releases', $vars, [
-            ee('CP/URL', 'addons/settings/datagrab')->compile() => ee()->lang->line('datagrab_module_name'),
-            ee('CP/URL', 'addons/settings/datagrab/releases')->compile() => 'Release Notes',
-        ]);
+        $actionId = (int) $action->action_id;
+        $query = '';
+
+        if (!empty($params)) {
+            $query = '&'. http_build_query($params);
+        }
+
+        $actionUrl = $this->getSiteIndex() .'?ACT='. $actionId . $query;
+
+        $this->cache[$cacheKey] = $actionUrl;
+
+        return $actionUrl;
+    }
+
+    /**
+     * @return array
+     */
+    public function license()
+    {
+        /** @var Setting $setting */
+        $setting = ee('datagrab:Setting');
+
+        if ($license = ee('Request')->post('license')) {
+            $setting->save([
+                'license' => $license,
+            ]);
+
+            (new Ping('datagrab_last_ping'))->clearPingStatus();
+
+            ee('CP/Alert')
+                ->makeInline('shared-form')
+                ->asSuccess()
+                ->withTitle('Success')
+                ->addToBody('License updated!')
+                ->now();
+        }
+
+        $sections = [
+            [
+                [
+                    'title' => 'datagrab_license_name',
+                    'desc' => lang('datagrab_license_desc'),
+                    'fields' => [
+                        'license' => [
+                            'required' => true,
+                            'type' => 'text',
+                            'value' => $setting->get('license'),
+                        ]
+                    ]
+                ],
+            ],
+        ];
+
+        $vars['sections'] = $sections;
+        $vars['base_url'] = ee('CP/URL')->make('addons/settings/datagrab/license')->compile();
+        $vars['save_btn_text'] = lang('save');
+        $vars['save_btn_text_working'] = lang('btn_saving');
+        $vars['cp_page_title'] = 'License';
+
+        // Load view
+        return [
+            'body' => ee('View')->make('ee:_shared/form')->render($vars),
+            'breadcrumb' => [
+                ee('CP/URL', 'addons/settings/datagrab')->compile() => ee()->lang->line('datagrab_module_name'),
+                ee('CP/URL', 'addons/settings/datagrab/license')->compile() => 'License',
+            ],
+        ];
     }
 }
-

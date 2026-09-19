@@ -15,7 +15,8 @@ namespace BoldMinded\DataGrab\Dependency\Ramsey\Collection\Map;
 /**
  * `AssociativeArrayMap` represents a standard associative array object.
  *
- * @extends AbstractMap<string, mixed>
+ * @template T
+ * @extends AbstractMap<T>
  */
 class AssociativeArrayMap extends AbstractMap
 {

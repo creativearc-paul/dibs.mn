@@ -1,10 +1,5 @@
 <?php
 
-use BoldMinded\DataGrab\Dependency\Litzinger\Basee\App;
-use BoldMinded\DataGrab\FieldTypes\AbstractFieldType;
-use BoldMinded\DataGrab\FieldTypes\ImportField;
-use BoldMinded\DataGrab\Service\Importer;
-
 /**
  * DataGrab Relationship fieldtype class
  *
@@ -14,337 +9,120 @@ use BoldMinded\DataGrab\Service\Importer;
  */
 class Datagrab_relationship extends AbstractFieldType
 {
-    public int $order = 1;
-
-    protected string $docUrl = 'https://docs.boldminded.com/datagrab/docs/field-types/relationships';
-
-    public function register_setting(string $fieldName): array
+    public function register_setting(string $field_name): array
     {
-        return [
-            $fieldName => [
-                'value',
-                'relationship_field',
-                'separator',
-            ],
-        ];
+        return [$field_name . "_relationship_field"];
     }
 
-    public function display_configuration(Importer $importer, string $fieldName, string $fieldLabel, string $fieldType, bool $fieldRequired = false, array $data = []): array
+    public function display_configuration(Datagrab_model $DG, string $fieldName, string $fieldLabel, string $fieldType, bool $fieldRequired = false, array $data = []): array
     {
         $config = [];
-        $config['label'] = $this->displayLabel($fieldLabel, $fieldName, $fieldRequired, 'relationship');
-        $fieldSettings = $data['field_settings'][$fieldName] ?? [];
+        $config["label"] = form_label($fieldLabel) . NBS .
+        anchor("https://docs.boldminded.com/datagrab/docs/field-types/relationships", "(?)", 'class="datagrab_help"');
 
-        $fieldSets = ee('View')
-            ->make('ee:_shared/form/section')
-            ->render([
-                'name' => 'fieldset_group',
-                'settings' => $this->getFormFields(
-                    $fieldName,
-                    $fieldSettings,
-                    $data,
-                    $this->getSavedFieldValues($data, $fieldName),
-                )
-            ]);
+        if ($fieldRequired) {
+            $config["label"] .= ' <span class="datagrab_required">*</span>';
+        }
+        $config["label"] .= '<div class="datagrab_subtext">' . $fieldType . "</div>";
 
-        $config['value'] = $fieldSets;
+        $config["value"] = "<p>" . form_dropdown(
+                $fieldName, $data["data_fields"],
+                $data["default_settings"]["cf"][$fieldName] ?? ''
+            )
+            . "</p><p>Field to match: " . NBS .
+            form_dropdown(
+                $fieldName . "_relationship_field",
+                $data["all_fields"],
+                ($data["default_settings"]["cf"][$fieldName . "_relationship_field"] ?? '')
+            ) . "</p>";
 
         return $config;
     }
 
-    public function getFormFields(
-        string $fieldName,
-        array $fieldSettings,
-        array $data = [],
-        array $savedFieldValues = [],
-        string $contentType = 'channel',
-    ): array {
-        $fieldOptions[] = [
-            'title' => 'Import Value',
-            'desc' => '',
-            'fields' => [
-                $fieldName . '[value]' => [
-                    'type' => 'dropdown',
-                    'choices' => $data['data_fields'],
-                    'value' => $savedFieldValues['value'] ?? '',
-                ]
-            ]
-        ];
-
-        $fieldOptions[] = [
-            'title' => 'Field to match',
-            'desc' => 'Choose which field will be used to match a valid entry and create a relationship.',
-            'fields' => [
-                $fieldName . '[relationship_field]' => [
-                    'type' => 'dropdown',
-                    'choices' => $data['all_fields'],
-                    'value' => $savedFieldValues['relationship_field'] ?? '',
-                ]
-            ]
-        ];
-
-        $fieldOptions[] = [
-            'title' => 'Separator',
-            'desc' => 'If importing multiple entries, choose which character to use to separate them. 
-                If you are importing a single entry, this will be ignored. 
-                Choose a value that will not appear in an entry title, otherwise it will not be able to match the entry.',
-            'fields' => [
-                $fieldName . '[separator]' => [
-                    'type' => 'dropdown',
-                    'choices' => [
-                        ',' => 'Comma ( , )',
-                        '|' => 'Pipe ( | )',
-                        "||" => 'Double Pipe ( || )',
-                        ';' => 'Semicolon ( ; )',
-                        "\n" => 'New Line ( \n )',
-                    ],
-                    'value' => $savedFieldValues['separator'] ?? '',
-                ]
-            ]
-        ];
-
-        return $fieldOptions;
-    }
-
-    /**
-     * If multiple properties appear with the same name, e.g. courses/title, courses/title#2, courses/title#3
-     * then we want assign all of them to the same Relationship field if it's a top level field.
-     * See grid-with-relationships.xml test file. This maintains legacy/original operations.
-     */
-    public function preparePostData(ImportField $importField): array
+    public function prepare_post_data(Datagrab_model $DG, array $item = [], int $fieldId = 0, string $fieldName = '', array &$data = [], int $updateEntryId = 0)
     {
-        if ($importField->contentType === 'grid') {
-            return $this->preparePostDataGrid($importField);
-        }
+        /** @var \ExpressionEngine\Model\Channel\ChannelField $fieldModel */
+        $fieldModel = ee('Model')->get('ChannelField', $fieldId)->first();
+        $settings = $fieldModel->getSettingsValues();
+        $order = 1;
 
-        if ($importField->importer->dataType->initialise_sub_item()) {
-            $data = [
-                'sort' => [],
-                'data' => [],
-            ];
-
-            $this->order = 1;
+        // Can the current datatype handle sub-loops (eg, XML)?
+        if (
+            $DG->dataType->datatype_info["allow_subloop"] &&
+            $DG->dataType->initialise_sub_item($item, $DG->settings["cf"][$fieldName], $DG->settings, $fieldName)
+        ) {
+            $data["field_id_" . $fieldId] = array();
+            $data["field_id_" . $fieldId]["sort"] = array();
+            $data["field_id_" . $fieldId]["data"] = array();
 
             // Loop over sub items
-            while ($subItem = $importField->importer->dataType->get_sub_item(
-                $importField->importItem,
-                $importField->propertyName,
-                $importField->importer->settings,
-                $importField->fieldName,
-            )) {
-                $sortedEntries = $this->getSortedRelationships($importField);
+            while ($subitem = $DG->dataType->get_sub_item($item, $DG->settings["cf"][$fieldName], $DG->settings, $fieldName)) {
+                // Check whether item matches a valid entry and create a relationship
+                // Check which field to compare
+                if (!isset($DG->settings["cf"][$fieldName . "_relationship_field"])) {
+                    // If not set (usually old saved import) then default to title
+                    $relationshipFieldName = 'title';
+                } else {
+                    // Custom field
+                    $relationshipFieldName = $DG->settings["cf"][$fieldName . "_relationship_field"];
+                }
+
+                $relatedValue = $subitem;
+                $relationshipFieldName = str_replace("exp_channel_titles.", "", $relationshipFieldName);
+
+                // Allow assignment of multiple relations. Possible this separator could be a config option.
+                $allowMultiple = $settings['field_settings']['allow_multiple'];
+
+                if (strpos($subitem, ',') !== false) {
+                    $relatedValue = explode(',', $subitem);
+                } elseif (strpos($subitem, '|') !== false) {
+                    $relatedValue = explode('|', $subitem);
+                }
+
+                if (is_array($relatedValue)) {
+                    $relatedValue = array_map('trim', $relatedValue);
+                }
+
+                // Make sure we have actual entry IDs
+                if ($allowMultiple && is_array($relatedValue) && !empty($relatedValue)) {
+                    $entries = ee('Model')->get('ChannelEntry')
+                        ->filter($relationshipFieldName, 'IN', $relatedValue)
+                        ->all()
+                        ->getDictionary('entry_id', 'title');
+                } else {
+                    $entries = ee('Model')->get('ChannelEntry')
+                        ->filter($relationshipFieldName, $relatedValue)
+                        ->all()
+                        ->getDictionary('entry_id', 'title');
+                }
+
+                if (!is_array($relatedValue)) {
+                    $relatedValue = [$relatedValue];
+                }
+
+                if ($relationshipFieldName === 'entry_id') {
+                    $sortedEntries = $this->sortArrayByArray($entries, $relatedValue);
+                } else {
+                    $sortedEntries = array_flip($this->sortArrayByArray(array_flip($entries), $relatedValue));
+                }
 
                 foreach ($sortedEntries as $entryId => $entryTitle) {
-                    $data['data'][] = $entryId;
-                    $data['sort'][] = $this->order++;
+                    $data["field_id_" . $fieldId]["data"][] = $entryId;
+                    $data["field_id_" . $fieldId]["sort"][] = $order++;
 
                     // -------------------------------------------
-                    //  'datagrab_prepare_post_data_relationships' hook
+                    //  'ajw_datagrab_prepare_post_data_relationships' hook
                     //      - Extensions implementing this hook must accept $data as a reference
                     //
-                    if ($importField->importer->extensions->active_hook('datagrab_prepare_post_data_relationships')) {
-                        $importField->importer->logger->log('Calling datagrab_prepare_post_data_relationships() hook.');
-                        $importField->importer->extensions->call(
-                            'datagrab_prepare_post_data_relationships',
-                            $data,
-                            $subItem,
-                            $importField->fieldName,
-                            $importField->fieldId,
-                            $this->order,
-                            $importField->importer
-                        );
+                    if ($DG->extensions->active_hook('ajw_datagrab_prepare_post_data_relationships')) {
+                        $DG->logger->log('Calling ajw_datagrab_prepare_post_data_relationships() hook.');
+                        $DG->extensions->call('ajw_datagrab_prepare_post_data_relationships', $data, $subitem, $fieldName, $fieldId, $order, $DG);
                     }
                     //
                     // -------------------------------------------
                 }
-
-                if (App::isAddonInstalled('publisher')) {
-                    // Fudge some data that Publisher_grid_hooks->grid_save() will use
-                    // to build the cache result that will eventually be handled by the Relationship field.
-                    $_POST['field_id_' . $importField->fieldId] = [
-                        'rows' => $data
-                    ];
-                }
-            }
-
-            return $data;
-        }
-
-        return [];
-    }
-
-    /**
-     * If multiple properties appear with the same name, e.g. courses/title, courses/title#2, courses/title#3
-     * then we want each to be assigned to separate grid rows, instead of all assigned to the first row.
-     * See grid-with-relationships.xml test file. This maintains legacy/original operations.
-     */
-    public function preparePostDataGrid(ImportField $importField): array
-    {
-        $data = [];
-
-        $sortedEntries = $this->getSortedRelationships($importField);
-
-        foreach ($sortedEntries as $entryId => $entryTitle) {
-            $data['data'][] = $entryId;
-            $data['sort'][] = $this->order++;
-
-            // -------------------------------------------
-            //  'datagrab_prepare_post_data_relationships' hook
-            //      - Extensions implementing this hook must accept $data as a reference
-            //
-            if ($importField->importer->extensions->active_hook('datagrab_prepare_post_data_relationships')) {
-                $importField->importer->logger->log('Calling datagrab_prepare_post_data_relationships() hook.');
-                $importField->importer->extensions->call(
-                    'datagrab_prepare_post_data_relationships',
-                    $data,
-                    $importField->propertyValue,
-                    $importField->fieldName,
-                    $importField->fieldId,
-                    $this->order,
-                    $importField->importer
-                );
-            }
-            //
-            // -------------------------------------------
-        }
-
-        if (App::isAddonInstalled('publisher')) {
-            // Fudge some data that Publisher_grid_hooks->grid_save() will use
-            // to build the cache result that will eventually be handled by the Relationship field.
-            $_POST['field_id_' . $importField->fieldId] = [
-                'rows' => $data
-            ];
-        }
-
-        return $data;
-    }
-
-    public function finalPostData(
-        ImportField $importField,
-        array $existingData = [],
-    ) {
-        // In Relationships case, if the data element is empty, no relationships, then we need to unset the
-        // field entirely, otherwise the rebuild_post_data event will not trigger, so it's impossible to assign
-        // more than 1 relationship at a time. Without this it will create the relationships, but continually
-        // reset their assignments to 0 if the entry is updated again in the same import routine.
-        $fieldData = $existingData['field_id_' . $importField->fieldId]['data'] ?? [];
-
-        if (empty($fieldData)) {
-            return null;
-        }
-
-        return $existingData['field_id_' . $importField->fieldId];
-    }
-
-    public function rebuildPostData(
-        Importer $importer,
-        int      $fieldId = 0,
-        array    $existingData = [],
-        array    $entryData = []
-    ) {
-        $where = [
-            'parent_id' => $existingData['entry_id'],
-            'field_id' => $fieldId
-        ];
-
-        // -------------------------------------------
-        //  'datagrab_rebuild_relationships_query' hook
-        //
-        if ($importer->extensions->active_hook('datagrab_rebuild_relationships_query')) {
-            $importer->logger->log('Calling datagrab_rebuild_relationships_query() hook.');
-            $query = $importer->extensions->call('datagrab_rebuild_relationships_query', $where);
-        } else {
-            ee()->db->select('child_id, order');
-            ee()->db->where($where);
-            ee()->db->order_by('order');
-            $query = ee()->db->get('exp_relationships');
-        }
-        //
-        // -------------------------------------------
-
-        $d = [];
-        $sort = [];
-
-        foreach ($query->result_array() as $row) {
-            $d[] = $row['child_id'];
-            $sort[] = $row['order'];
-        }
-
-        // Rebuild selections array
-        return [
-            'data' => $d,
-            'sort' => $sort
-        ];
-    }
-
-    /**
-     * @param mixed    $subItem
-     * @param mixed    $fieldName
-     * @param array    $data
-     * @param int      $fieldId
-     * @param Importer $importer
-     * @param string   $contentType
-     * @return array
-     */
-    public function getSortedRelationships(ImportField $importField): array
-    {
-        // Check whether item matches a valid entry and create a relationship
-        // Check which field to compare
-        if (!isset($importField->fieldImportConfig['relationship_field'])) {
-            // If not set (usually old saved import) then default to title
-            $relationshipFieldName = 'title';
-        } else {
-            // Custom field
-            $relationshipFieldName = $importField->fieldImportConfig['relationship_field'];
-        }
-
-        $relatedValue = $importField->propertyValue;
-        $relationshipFieldName = str_replace("exp_channel_titles.", "", $relationshipFieldName) ?: 'title';
-        $allowMultiple = boolval($importField->fieldSettings['allow_multiple'] ?? 0);
-        $separator = $importField->fieldImportConfig['separator'] ?? ',';
-
-        if ($allowMultiple && $separator && strpos($importField->propertyValue, $separator) !== false) {
-            $relatedValue = explode($separator, $importField->propertyValue);
-
-            if (is_array($relatedValue)) {
-                $relatedValue = array_map('trim', $relatedValue);
             }
         }
-
-        $channelIds = $settings['field_settings']['channels'] ?? [];
-
-        // Make sure we have actual entry IDs
-        if ($allowMultiple && is_array($relatedValue) && !empty($relatedValue)) {
-            $builder = ee('Model')->get('ChannelEntry')
-                ->filter($relationshipFieldName, 'IN', $relatedValue);
-
-            if (!empty($channelIds)) {
-                $builder->filter('channel_id', 'IN', $channelIds);
-            }
-
-            $entries = $builder->all()->getDictionary('entry_id', 'title');
-        } else {
-            $builder = ee('Model')->get('ChannelEntry')
-                ->filter($relationshipFieldName, $relatedValue);
-
-            if (!empty($channelIds)) {
-                $builder->filter('channel_id', 'IN', $channelIds);
-            }
-
-            $entries = $builder->all()->getDictionary('entry_id', 'title');
-        }
-
-        if (!is_array($relatedValue)) {
-            $relatedValue = [$relatedValue];
-        }
-
-        if ($relationshipFieldName === 'entry_id') {
-            $sortedEntries = $this->sortArrayByArray($entries, $relatedValue);
-        } else {
-            $sortedEntries = array_flip($this->sortArrayByArray(array_flip($entries), $relatedValue));
-        }
-
-        return $sortedEntries;
     }
 
     /**
@@ -352,7 +130,7 @@ class Datagrab_relationship extends AbstractFieldType
      * @param array $sortBy
      * @return array
      */
-    public static function sortArrayByArray(array $toSort, array $sortBy): array
+    public function sortArrayByArray(array $toSort, array $sortBy): array
     {
         $ordered = [];
 
@@ -364,5 +142,57 @@ class Datagrab_relationship extends AbstractFieldType
         }
 
         return $ordered + $toSort;
+    }
+
+    public function final_post_data(Datagrab_model $DG, array $item = [], int $fieldId = 0, string $fieldName = '', array &$data = [], int $updateEntryId = 0)
+    {
+        // In Relationships case, if the data element is empty, no relationships, then we need to unset the
+        // field entirely, otherwise the rebuild_post_data event will not trigger, so it's impossible to assign
+        // more than 1 relationship at a time. Without this it will create the relationships, but continually
+        // reset their assignments to 0 if the entry is updated again in the same import routine.
+        $fieldData = $data['field_id_' . $fieldId]['data'] ?? [];
+
+        if (empty($fieldData)) {
+            unset($data['field_id_' . $fieldId]);
+        }
+
+        return $data;
+    }
+
+    public function rebuild_post_data(Datagrab_model $DG, int $fieldId = 0, array &$data = [], array $existingData = [])
+    {
+        $where = [
+            'parent_id' => $existingData["entry_id"],
+            'field_id' => $fieldId
+        ];
+
+        // -------------------------------------------
+        //  'ajw_datagrab_rebuild_relationships_query' hook
+        //
+        if ($DG->extensions->active_hook('ajw_datagrab_rebuild_relationships_query')) {
+            $DG->logger->log('Calling ajw_datagrab_rebuild_relationships_query() hook.');
+            $query = $DG->extensions->call('ajw_datagrab_rebuild_relationships_query', $where);
+        } else {
+            // Fetch relationships from exp_playa_relationships
+            ee()->db->select("child_id, order");
+            ee()->db->where($where);
+            ee()->db->order_by("order");
+            $query = ee()->db->get("exp_relationships");
+        }
+        //
+        // -------------------------------------------
+
+        $d = [];
+        $sort = [];
+        foreach ($query->result_array() as $row) {
+            $d[] = $row["child_id"];
+            $sort[] = $row["order"];
+        }
+
+        // Rebuild selections array
+        $data["field_id_" . $fieldId] = [
+            "data" => $d,
+            "sort" => $sort
+        ];
     }
 }

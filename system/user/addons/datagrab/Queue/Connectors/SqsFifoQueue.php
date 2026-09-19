@@ -19,7 +19,7 @@ class SqsFifoQueue extends SqsQueue
 
             return $response->get('MessageId');
         } catch (\Exception $exception) {
-            ee('datagrab:Importer')->logger->log($exception->getMessage());
+            ee()->datagrab->logger->log($exception->getMessage());
             return null;
         }
     }

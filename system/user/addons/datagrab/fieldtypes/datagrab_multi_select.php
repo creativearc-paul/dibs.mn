@@ -1,8 +1,5 @@
 <?php
 
-use BoldMinded\DataGrab\FieldTypes\AbstractFieldType;
-use BoldMinded\DataGrab\FieldTypes\ImportField;
-
 /**
  * DataGrab Multiselect fieldtype class
  *
@@ -12,30 +9,31 @@ use BoldMinded\DataGrab\FieldTypes\ImportField;
  */
 class Datagrab_multi_select extends AbstractFieldType
 {
-    protected string $fieldDescription = 'Multiple values must be comma or pipe delimited.';
-
-    public function finalPostData(ImportField $importField)
+    public function prepare_post_data(Datagrab_model $DG, array $item = [], int $fieldId = 0, string $fieldName = '', array &$data = [], int $updateEntryId = 0)
     {
-        $values = [];
+        $values = array();
 
-        if ($importField->importer->dataType->initialise_sub_item()) {
-            // Loop over sub items
-            while ($subitem = $importField->importer->dataType->get_sub_item(
-                $importField->importItem, $importField->propertyName, $importField->fieldSettings, $importField->fieldName)
-            ) {
-                $subitem = str_replace('|', ',', $subitem);
-
-                foreach (explode(',', $subitem) as $item) {
-                    $values[] = trim($item);
+        // Can the current datatype handle sub-loops (eg, XML)?
+        if ($DG->dataType->datatype_info["allow_subloop"]) {
+            // Check this field can be a sub-loop
+            if ($DG->dataType->initialise_sub_item($item, $DG->settings["cf"][$fieldName], $DG->settings, $fieldName)) {
+                // Loop over sub items
+                while ($subitem = $DG->dataType->get_sub_item($item, $DG->settings["cf"][$fieldName], $DG->settings, $fieldName)) {
+                    $subitem = str_replace("|", ",", $subitem);
+                    foreach (explode(",", $subitem) as $titem) {
+                        $values[] = trim($titem);
+                    }
                 }
             }
+        } else {
+            $subitem = $DG->dataType->get_item($item, $DG->settings["cf"][$fieldName]);
+            $subitem = str_replace("|", ",", $subitem);
 
-            return $values;
+            foreach (explode(",", $subitem) as $titem) {
+                $values[] = trim($titem);
+            }
         }
 
-        $subitem = $importField->importer->dataType->get_item($importField->importItem, $importField->fieldName);
-        $subitem = str_replace('|', ',', $subitem);
-
-        return array_map('trim', explode(',', $subitem));
+        $data["field_id_" . $fieldId] = $values;
     }
 }

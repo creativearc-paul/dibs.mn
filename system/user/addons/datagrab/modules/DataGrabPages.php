@@ -1,7 +1,5 @@
 <?php
 
-use BoldMinded\DataGrab\Service\Importer;
-
 /**
  * Why does anyone still use this module?!
  */
@@ -17,7 +15,7 @@ class DataGrabPages extends AbstractModule implements ModuleInterface
         return 'Pages';
     }
 
-    public function displayConfiguration(Importer $importer, array $data = []): array
+    public function displayConfiguration(Datagrab_model $DG, array $data = []): array
     {
         $options = [
             '' => 'Create or Update', // Default, also backwards compatible
@@ -45,7 +43,7 @@ class DataGrabPages extends AbstractModule implements ModuleInterface
         ];
     }
 
-    public function saveConfiguration(Importer $importer): array
+    public function saveConfiguration(Datagrab_model $DG): array
     {
         $data = ee()->input->post($this->getName());
 
@@ -57,7 +55,7 @@ class DataGrabPages extends AbstractModule implements ModuleInterface
         ];
     }
 
-    public function handle(Importer $importer, array &$data = [], array $item = [], array $custom_fields = [], string $action = '')
+    public function handle(Datagrab_model $DG, array &$data = [], array $item = [], array $custom_fields = [], string $action = '')
     {
         $onAction = $this->getSettingValue('execute_on_action');
 
@@ -70,7 +68,7 @@ class DataGrabPages extends AbstractModule implements ModuleInterface
             return;
         }
 
-        // Not 100% sure I understand this, but core EE is checking for this field and it has been in importer's core for a long time.
+        // Not 100% sure I understand this, but core EE is checking for this field and it has been in DG's core for a long time.
         $data["cp_call"] = true;
 
         if ($this->getSettingValue('pages_url') === '') {
@@ -78,39 +76,39 @@ class DataGrabPages extends AbstractModule implements ModuleInterface
             $data["pages__pages_uri"] = $entryUrlTitle;
             $_POST["pages__pages_uri"] = $entryUrlTitle;
         } else {
-            $data["pages__pages_uri"] = $importer->dataType->get_item($item, $this->getSettingValue('pages_url'));
-            $_POST["pages__pages_uri"] = $importer->dataType->get_item($item, $this->getSettingValue('pages_url'));
+            $data["pages__pages_uri"] = $DG->dataType->get_item($item, $this->getSettingValue('pages_url'));
+            $_POST["pages__pages_uri"] = $DG->dataType->get_item($item, $this->getSettingValue('pages_url'));
         }
 
-        $importer->db->select("configuration_value");
-        $importer->db->where("configuration_name", "template_channel_" . $importer->channelDefaults["channel_id"]);
-        $query = $importer->db->get("exp_pages_configuration");
+        $DG->db->select("configuration_value");
+        $DG->db->where("configuration_name", "template_channel_" . $DG->channelDefaults["channel_id"]);
+        $query = $DG->db->get("exp_pages_configuration");
 
         if ($query->num_rows() > 0) {
             $row = $query->row_array();
             $default_template = $row["configuration_value"];
         } else {
-            $importer->db->select("exp_templates.template_id");
-            $importer->db->from("exp_templates");
-            $importer->db->join("exp_template_groups", "exp_template_groups.group_id = exp_templates.group_id");
-            $importer->db->where("is_site_default", "y");
-            $importer->db->where("template_name", "index");
-            $query = $importer->db->get();
+            $DG->db->select("exp_templates.template_id");
+            $DG->db->from("exp_templates");
+            $DG->db->join("exp_template_groups", "exp_template_groups.group_id = exp_templates.group_id");
+            $DG->db->where("is_site_default", "y");
+            $DG->db->where("template_name", "index");
+            $query = $DG->db->get();
             $row = $query->row_array();
             $default_template = $row["template_id"] ?? 1;
         }
 
         if ($this->getSettingValue('pages_template')) {
-            $template = $importer->dataType->get_item($item, $this->getSettingValue('pages_template'));
+            $template = $DG->dataType->get_item($item, $this->getSettingValue('pages_template'));
             $template_segments = explode("/", $template);
 
             if (count($template_segments) == 2) {
-                $importer->db->select("exp_templates.template_id");
-                $importer->db->from("exp_templates");
-                $importer->db->join("exp_template_groups", "exp_template_groups.group_id = exp_templates.group_id");
-                $importer->db->where("group_name", $template_segments[0]);
-                $importer->db->where("template_name", $template_segments[1]);
-                $query = $importer->db->get();
+                $DG->db->select("exp_templates.template_id");
+                $DG->db->from("exp_templates");
+                $DG->db->join("exp_template_groups", "exp_template_groups.group_id = exp_templates.group_id");
+                $DG->db->where("group_name", $template_segments[0]);
+                $DG->db->where("template_name", $template_segments[1]);
+                $query = $DG->db->get();
                 if ($query->num_rows() > 0) {
                     $row = $query->row_array();
                     $default_template = $row["template_id"];

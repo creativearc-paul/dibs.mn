@@ -12,6 +12,7 @@
 declare (strict_types=1);
 namespace BoldMinded\DataGrab\Dependency\Ramsey\Uuid;
 
+use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Builder\BuilderCollection;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Builder\FallbackBuilder;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Builder\UuidBuilderInterface;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Codec\CodecInterface;
@@ -33,7 +34,6 @@ use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Generator\RandomGeneratorFactory;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Generator\RandomGeneratorInterface;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Generator\TimeGeneratorFactory;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Generator\TimeGeneratorInterface;
-use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Generator\UnixTimeGenerator;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Guid\GuidBuilder;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Math\BrickMathCalculator;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Math\CalculatorInterface;
@@ -41,6 +41,7 @@ use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Nonstandard\UuidBuilder as Nonsta
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Provider\Dce\SystemDceSecurityProvider;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Provider\DceSecurityProviderInterface;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Provider\Node\FallbackNodeProvider;
+use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Provider\Node\NodeProviderCollection;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Provider\Node\RandomNodeProvider;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Provider\Node\SystemNodeProvider;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Provider\NodeProviderInterface;
@@ -53,45 +54,101 @@ use const PHP_INT_SIZE;
 /**
  * FeatureSet detects and exposes available features in the current environment
  *
- * A feature set is used by UuidFactory to determine the available features and capabilities of the environment.
+ * A feature set is used by UuidFactory to determine the available features and
+ * capabilities of the environment.
  */
 class FeatureSet
 {
-    private ?TimeProviderInterface $timeProvider = null;
-    private CalculatorInterface $calculator;
-    private CodecInterface $codec;
-    private DceSecurityGeneratorInterface $dceSecurityGenerator;
-    private NameGeneratorInterface $nameGenerator;
-    private NodeProviderInterface $nodeProvider;
-    private NumberConverterInterface $numberConverter;
-    private RandomGeneratorInterface $randomGenerator;
-    private TimeConverterInterface $timeConverter;
-    private TimeGeneratorInterface $timeGenerator;
-    private TimeGeneratorInterface $unixTimeGenerator;
-    private UuidBuilderInterface $builder;
-    private ValidatorInterface $validator;
+    /**
+     * @var bool
+     */
+    private $disableBigNumber = \false;
+    /**
+     * @var bool
+     */
+    private $disable64Bit = \false;
+    /**
+     * @var bool
+     */
+    private $ignoreSystemNode = \false;
+    /**
+     * @var bool
+     */
+    private $enablePecl = \false;
+    /**
+     * @var UuidBuilderInterface
+     */
+    private $builder;
+    /**
+     * @var CodecInterface
+     */
+    private $codec;
+    /**
+     * @var DceSecurityGeneratorInterface
+     */
+    private $dceSecurityGenerator;
+    /**
+     * @var NameGeneratorInterface
+     */
+    private $nameGenerator;
+    /**
+     * @var NodeProviderInterface
+     */
+    private $nodeProvider;
+    /**
+     * @var NumberConverterInterface
+     */
+    private $numberConverter;
+    /**
+     * @var TimeConverterInterface
+     */
+    private $timeConverter;
+    /**
+     * @var RandomGeneratorInterface
+     */
+    private $randomGenerator;
+    /**
+     * @var TimeGeneratorInterface
+     */
+    private $timeGenerator;
+    /**
+     * @var TimeProviderInterface
+     */
+    private $timeProvider;
+    /**
+     * @var ValidatorInterface
+     */
+    private $validator;
+    /**
+     * @var CalculatorInterface
+     */
+    private $calculator;
     /**
      * @param bool $useGuids True build UUIDs using the GuidStringCodec
-     * @param bool $force32Bit True to force the use of 32-bit functionality (primarily for testing purposes)
-     * @param bool $forceNoBigNumber (obsolete)
-     * @param bool $ignoreSystemNode True to disable attempts to check for the system node ID (primarily for testing purposes)
-     * @param bool $enablePecl True to enable the use of the PeclUuidTimeGenerator to generate version 1 UUIDs
-     *
-     * @phpstan-ignore constructor.unusedParameter ($forceNoBigNumber is deprecated)
+     * @param bool $force32Bit True to force the use of 32-bit functionality
+     *     (primarily for testing purposes)
+     * @param bool $forceNoBigNumber True to disable the use of moontoast/math
+     *     (primarily for testing purposes)
+     * @param bool $ignoreSystemNode True to disable attempts to check for the
+     *     system node ID (primarily for testing purposes)
+     * @param bool $enablePecl True to enable the use of the PeclUuidTimeGenerator
+     *     to generate version 1 UUIDs
      */
-    public function __construct(bool $useGuids = \false, private bool $force32Bit = \false, bool $forceNoBigNumber = \false, private bool $ignoreSystemNode = \false, private bool $enablePecl = \false)
+    public function __construct(bool $useGuids = \false, bool $force32Bit = \false, bool $forceNoBigNumber = \false, bool $ignoreSystemNode = \false, bool $enablePecl = \false)
     {
-        $this->randomGenerator = $this->buildRandomGenerator();
+        $this->disableBigNumber = $forceNoBigNumber;
+        $this->disable64Bit = $force32Bit;
+        $this->ignoreSystemNode = $ignoreSystemNode;
+        $this->enablePecl = $enablePecl;
         $this->setCalculator(new BrickMathCalculator());
         $this->builder = $this->buildUuidBuilder($useGuids);
         $this->codec = $this->buildCodec($useGuids);
         $this->nodeProvider = $this->buildNodeProvider();
         $this->nameGenerator = $this->buildNameGenerator();
+        $this->randomGenerator = $this->buildRandomGenerator();
         $this->setTimeProvider(new SystemTimeProvider());
         $this->setDceSecurityProvider(new SystemDceSecurityProvider());
         $this->validator = new GenericValidator();
-        \assert($this->timeProvider !== null);
-        $this->unixTimeGenerator = $this->buildUnixTimeGenerator();
     }
     /**
      * Returns the builder configured for this environment
@@ -164,13 +221,6 @@ class FeatureSet
         return $this->timeGenerator;
     }
     /**
-     * Returns the Unix Epoch time generator configured for this environment
-     */
-    public function getUnixTimeGenerator() : TimeGeneratorInterface
-    {
-        return $this->unixTimeGenerator;
-    }
-    /**
      * Returns the validator configured for this environment
      */
     public function getValidator() : ValidatorInterface
@@ -185,6 +235,7 @@ class FeatureSet
         $this->calculator = $calculator;
         $this->numberConverter = $this->buildNumberConverter($calculator);
         $this->timeConverter = $this->buildTimeConverter($calculator);
+        /** @psalm-suppress RedundantPropertyInitializationCheck */
         if (isset($this->timeProvider)) {
             $this->timeGenerator = $this->buildTimeGenerator($this->timeProvider);
         }
@@ -202,9 +253,7 @@ class FeatureSet
     public function setNodeProvider(NodeProviderInterface $nodeProvider) : void
     {
         $this->nodeProvider = $nodeProvider;
-        if (isset($this->timeProvider)) {
-            $this->timeGenerator = $this->buildTimeGenerator($this->timeProvider);
-        }
+        $this->timeGenerator = $this->buildTimeGenerator($this->timeProvider);
     }
     /**
      * Sets the time provider to use in this environment
@@ -248,7 +297,7 @@ class FeatureSet
         if ($this->ignoreSystemNode) {
             return new RandomNodeProvider();
         }
-        return new FallbackNodeProvider([new SystemNodeProvider(), new RandomNodeProvider()]);
+        return new FallbackNodeProvider(new NodeProviderCollection([new SystemNodeProvider(), new RandomNodeProvider()]));
     }
     /**
      * Returns a number converter configured for this environment
@@ -281,13 +330,6 @@ class FeatureSet
         return (new TimeGeneratorFactory($this->nodeProvider, $this->timeConverter, $timeProvider))->getGenerator();
     }
     /**
-     * Returns a Unix Epoch time generator configured for this environment
-     */
-    private function buildUnixTimeGenerator() : TimeGeneratorInterface
-    {
-        return new UnixTimeGenerator($this->randomGenerator);
-    }
-    /**
      * Returns a name generator configured for this environment
      */
     private function buildNameGenerator() : NameGeneratorInterface
@@ -318,13 +360,14 @@ class FeatureSet
         if ($useGuids) {
             return new GuidBuilder($this->numberConverter, $this->timeConverter);
         }
-        return new FallbackBuilder([new Rfc4122UuidBuilder($this->numberConverter, $this->timeConverter), new NonstandardUuidBuilder($this->numberConverter, $this->timeConverter)]);
+        /** @psalm-suppress ImpureArgument */
+        return new FallbackBuilder(new BuilderCollection([new Rfc4122UuidBuilder($this->numberConverter, $this->timeConverter), new NonstandardUuidBuilder($this->numberConverter, $this->timeConverter)]));
     }
     /**
      * Returns true if the PHP build is 64-bit
      */
     private function is64BitSystem() : bool
     {
-        return PHP_INT_SIZE === 8 && !$this->force32Bit;
+        return PHP_INT_SIZE === 8 && !$this->disable64Bit;
     }
 }

@@ -479,9 +479,11 @@ class ReflectionClosure extends ReflectionFunction
                     break;
                 case 'id_name':
                     switch ($token[0]) {
-                        case $token[0] === ':' && $context !== 'instanceof':
+                        // named arguments...
+                        case ':':
                             if ($lastState === 'closure' && $context === 'root') {
-                                $state = 'closure';
+                                $state = 'ignore_next';
+                                $lastState = 'closure';
                                 $code .= $id_start . $token;
                             }
                             break;
@@ -604,11 +606,6 @@ class ReflectionClosure extends ReflectionFunction
                     break;
                 case 'anonymous':
                     switch ($token[0]) {
-                        case \T_NAME_QUALIFIED:
-                            [$id_start, $id_start_ci, $id_name] = $this->parseNameQualified($token[1]);
-                            $state = 'id_name';
-                            $lastState = 'anonymous';
-                            break 2;
                         case \T_NS_SEPARATOR:
                         case \T_STRING:
                             $id_start = $token[1];
@@ -745,7 +742,7 @@ class ReflectionClosure extends ReflectionFunction
         return $this->isScopeRequired;
     }
     /**
-     * The hash of the current file name.
+     * The the hash of the current file name.
      *
      * @return string
      */

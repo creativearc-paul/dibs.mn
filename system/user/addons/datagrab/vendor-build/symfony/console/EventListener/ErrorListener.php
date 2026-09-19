@@ -23,7 +23,7 @@ use BoldMinded\DataGrab\Dependency\Symfony\Component\EventDispatcher\EventSubscr
 class ErrorListener implements EventSubscriberInterface
 {
     private $logger;
-    public function __construct(?LoggerInterface $logger = null)
+    public function __construct(LoggerInterface $logger = null)
     {
         $this->logger = $logger;
     }

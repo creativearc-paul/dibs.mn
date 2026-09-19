@@ -1,9 +1,5 @@
 <?php
 
-use BoldMinded\DataGrab\FieldTypes\AbstractFieldType;
-use BoldMinded\DataGrab\FieldTypes\ImportField;
-use BoldMinded\DataGrab\Service\Importer;
-
 /**
  * DataGrab Grid fieldtype class
  *
@@ -13,278 +9,157 @@ use BoldMinded\DataGrab\Service\Importer;
  */
 class Datagrab_grid extends AbstractFieldType
 {
-    public const HAS_SUB_ITEMS = true;
-
-    protected string $docUrl = 'https://docs.boldminded.com/datagrab/docs/field-types/grid';
-
-    private array $supportedFieldTypes = [
-        'ansel',
-        'date',
-        'file',
-        'relationship',
-        'simple_grid',
-        'simple_table',
-    ];
-
     /**
      * Register a setting so it can be saved
+     *
+     * @param string $field_name
+     * @return array
      */
-    public function register_setting(string $fieldName): array
+    public function register_setting(string $field_name): array
     {
         return [
-            $fieldName => [
-                'value',
-                'columns',
-                'unique',
-                'fieldType',
-            ]
+            $field_name . '_columns',
+            $field_name . '_unique',
+            $field_name . '_extra1',
+            $field_name . '_extra2'
         ];
     }
 
-    private function getColumnsByFieldName(string $fieldName): array
+    public function display_configuration(Datagrab_model $DG, string $fieldName, string $fieldLabel, string $fieldType, bool $fieldRequired = false, array $data = []): array
     {
+        $config = [];
+        $config['label'] = form_label($fieldLabel) . NBS .
+            anchor("https://docs.boldminded.com/datagrab/docs/field-types/grid", "(?)", 'class="datagrab_help"');
+        if ($fieldRequired) {
+            $config['label'] .= ' <span class="datagrab_required">*</span>';
+        }
+        $config["label"] .= '<div class="datagrab_subtext">' . $fieldType . "</div>";
+        $config['value'] = '';
+        //$config['value'] .= form_hidden($fieldName, '1');
+
+        $default = [];
+        // Get current saved setting
+        if (isset($data['default_settings']['cf'][$fieldName . '_columns'])) {
+            $default = $data['default_settings']['cf'][$fieldName . '_columns'];
+        }
+
         // Find columns for this grid
-        ee()->db->select('col_id, col_type, col_label, col_required, col_settings');
+        ee()->db->select('col_id, col_type, col_label');
         ee()->db->from('exp_grid_columns g');
         ee()->db->join('exp_channel_fields c', 'g.field_id = c.field_id');
         ee()->db->where('c.field_name', $fieldName);
         ee()->db->order_by('col_order ASC');
-
         $query = ee()->db->get();
 
-        return $query->result_array();
-    }
+        // Build ui
+        $grid_columns = $query->result_array();
+        foreach ($query->result_array() as $row) {
+            $config['value'] .= '<p>' . $row['col_label'] . NBS . ':' . NBS;
+            $config['value'] .= form_dropdown(
+                $fieldName . '_columns[' . $row['col_id'] . ']',
+                $data['data_fields'],
+                $default[$row['col_id']] ?? ''
+            );
 
-    private function getColumnsByFieldId(int $fieldId): array
-    {
-        // Find columns for this grid
-        ee()->db->select('col_id, col_type, col_label, col_required, col_settings');
-        ee()->db->from('exp_grid_columns g');
-        ee()->db->join('exp_channel_fields c', 'g.field_id = c.field_id');
-        ee()->db->where('c.field_id', $fieldId);
-        ee()->db->order_by('col_order ASC');
+            if ($row['col_type'] === 'file') {
+                $config['value'] .= NBS . NBS . 'Upload folder: ' . NBS;
 
-        $query = ee()->db->get();
+                // Get upload folders
+                if (!isset($folders)) {
+                    ee()->db->select('id, name');
+                    ee()->db->from('exp_upload_prefs');
+                    ee()->db->order_by('id');
+                    $query = ee()->db->get();
+                    $folders = array();
+                    foreach ($query->result_array() as $folder) {
+                        $folders[$folder['id']] = $folder['name'];
+                    }
+                }
 
-        return $query->result_array();
-    }
-
-    public function display_configuration(Importer $importer, string $fieldName, string $fieldLabel, string $fieldType, bool $fieldRequired = false, array $data = []): array
-    {
-        $config = [];
-        $config['label'] = $this->displayLabel($fieldLabel, $fieldName, $fieldRequired, 'grid');
-        $fieldSettings = $this->getSavedFieldValues($data, $fieldName);
-
-        $fieldSets = ee('View')
-            ->make('ee:_shared/form/section')
-            ->render([
-                'name' => 'fieldset_group',
-                'settings' => $this->getFormFields(
-                    $fieldName,
-                    $fieldSettings,
-                    $data,
-                    $fieldSettings,
-                    'grid',
-                    $importer
-                ),
-            ]);
-
-        $config['value'] = $fieldSets;
-
-        return $config;
-    }
-
-    public function getFormFields(
-        string $fieldName,
-        array $fieldSettings,
-        array $data = [],
-        array $savedFieldValues = [],
-        string $contentType = 'grid',
-        Importer $importer = null
-    ): array {
-        // Are we in a Fluid field?
-        if (preg_match('/\[groups\]\[(\d+)\]\[fields\]\[(\d+)\]/', $fieldName, $matches)) {
-            $fieldId = $matches[2] ?? 0;
-            $gridColumns = $this->getColumnsByFieldId($fieldId);
-        } else {
-            $gridColumns = $this->getColumnsByFieldName($fieldName);
-        }
-
-        $savedColumnValues = $savedFieldValues['columns'] ?? [];
-        $fieldOptions = [];
-        $wrapOpen = '';
-        $wrapClose = '';
-
-        if (in_array($contentType, ['fluid_field'])) {
-            $fieldOptions[] = [
-                'title' => 'Parent Node',
-                'desc' => 'Select the parent node that contains all the children for this field. It will be labeled with <b>[includes N children]</b>.',
-                'fields' => [
-                    $fieldName . '[value]' => [
-                        'type' => 'dropdown',
-                        'choices' => $data['data_fields'],
-                        'value' => $savedFieldValues['value'] ?? '',
-                        'required' => true,
-                    ],
-                ]
-            ];
-
-            $wrapOpen = '<div class="datagrab-nested-config-option">';
-            $wrapClose = '</div>';
-        }
-
-        foreach ($gridColumns as $row) {
-            $colType = $row['col_type'];
-            $colId = $row['col_id'];
-
-            if (in_array($colType, $this->supportedFieldTypes)) {
-                $handler = $importer->getLoader()->loadFieldTypeHandler($colType);
-                $handler->fieldPrefix = $fieldName . '[columns]';
-
-                $subFormFields = $handler->getFormFields(
-                    $handler->createFieldName($colId),
-                    json_decode($row['col_settings'] ?? '', true),
-                    $data,
-                    $savedColumnValues[$colId] ?? [],
-                    'grid'
+                $config['value'] .= form_dropdown(
+                    $fieldName . '_extra1[' . $row['col_id'] . ']',
+                    $folders,
+                    $data['default_settings']['cf'][$fieldName . '_extra1'][$row['col_id']] ?? ''
                 );
-
-                $fieldOptions[] = $wrapOpen . ee('View')
-                    ->make('ee:_shared/form/section')
-                    ->render([
-                        'name' => $row['col_label'],
-                        'settings' => $subFormFields,
-                    ]) . $wrapClose;
-            } else {
-                $fieldOptions[] = $wrapOpen . ee('View')
-                    ->make('ee:_shared/form/section')
-                    ->render([
-                        'name' => $row['col_label'],
-                        'settings' => [
-                            [
-                                'title' => 'Import Value',
-                                'desc' => '',
-                                'fields' => [
-                                    $fieldName . '[columns][' . $colId . '][value]' => [
-                                        'type' => 'dropdown',
-                                        'choices' => $data['data_fields'],
-                                        'value' => $savedColumnValues[$colId]['value'] ?? '',
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ]) . $wrapClose;
+                $config['value'] .= NBS . NBS . 'Fetch?: ' . NBS;
+                $config['value'] .= form_dropdown(
+                    $fieldName . '_extra2[' . $row['col_id'] . ']',
+                    array('No', 'Yes'),
+                    $data['default_settings']['cf'][$fieldName . '_extra2'][$row['col_id']] ?? ''
+                );
             }
+
+            $config['value'] .= '</p>';
         }
 
-        $column_options = [
-            '0' => 'Keep existing rows and append new',
-            '-1' => 'Delete all existing rows',
-        ];
-        $sub_options = [];
-        foreach ($gridColumns as $row) {
+        $column_options = array();
+        $column_options['0'] = 'Keep existing rows and append new';
+        $column_options['-1'] = 'Delete all existing rows';
+        $sub_options = array();
+        foreach ($grid_columns as $row) {
             $sub_options[$row['col_id']] = $row['col_label'];
         }
         $column_options['Update the row if this column matches:'] = $sub_options;
 
-        $fieldOptions[] = $wrapOpen .ee('View')
-            ->make('ee:_shared/form/section')
-            ->render([
-                'name' => 'Additional Options',
-                'settings' => [
-                    [
-                        'title' => 'Action to take when an entry is updated',
-                        'desc' => '',
-                        'fields' => [
-                            $fieldName . '[unique]' => [
-                                'type' => 'dropdown',
-                                'choices' => $column_options,
-                                'value' => $savedFieldValues['unique'] ?? '',
-                            ],
-                        ]
-                    ]
-                ]
-            ]) . $wrapClose;
+        $config['value'] .= '<p>' .
+            'Action to take when an entry is updated: ' .
+            form_dropdown(
+                $fieldName . '_unique',
+                $column_options,
+                $data['default_settings']['cf'][$fieldName . '_unique'] ?? ''
+            ) .
+            '</p>';
 
-        $fieldOptions[] = [
-            'fields' => [
-                $fieldName . '[fieldType]' => [
-                    'type' => 'hidden',
-                    'value' => 'grid',
-                ],
-            ]
-        ];
-
-        return $fieldOptions;
+        return $config;
     }
 
-
-    public function save_configuration(
-        Importer $importer,
-        string   $fieldName = '',
-        array    $customFieldSettings = []
-    ) {
+    public function save_configuration(Datagrab_model $DG, string $fieldName = '', array $customFieldSettings = [])
+    {
         // If no columns are defined for accepting import data, don't remove any existing data on the entry
         // when performing an import and updating existing entries, and don't remove any rows from Grid fields
         // that we don't want to import data into.
-        $columns  = $customFieldSettings['columns'] ?? [];
-        $values = array_filter(array_column($columns, 'value'));
-
-        if (empty($values)) {
-            return [];
+        if (
+            array_key_exists($fieldName . '_columns', $customFieldSettings) &&
+            empty(array_filter($customFieldSettings[$fieldName . '_columns']))
+        ) {
+            return 0;
         }
 
-        return $customFieldSettings;
+        return 1;
     }
 
-    public function hasFieldValue(array $settings = []): bool
-    {
-        foreach ($settings['columns'] ?? [] as $column) {
-            if (($column['value'] ?? '') !== '') {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    public function preparePostData(ImportField $importField): array {
-        return $this->finalPostData($importField);
-    }
-
-    public function finalPostData(ImportField $importField): array
+    public function final_post_data(Datagrab_model $DG, array $item = [], int $fieldId = 0, string $fieldName = '', array &$data = [], int $updateEntryId = 0)
     {
         // Find columns for this grid
-        $query = ee()->db
-            ->select('col_id, col_type, col_label, col_settings')
-            ->from('exp_grid_columns g')
-            ->where('field_id', $importField->fieldId)
-            ->get();
-
-        $gridColumns = $query->result_array();
+        ee()->db->select('col_id, col_type, col_label');
+        ee()->db->from('exp_grid_columns g');
+        ee()->db->where('field_id', $fieldId);
+        $query = ee()->db->get();
+        $grid_columns = $query->result_array();
 
         // $fields contains a list of grid columns mapped to data elements
         // eg, $fields[3] => 5 means map data element 5 to grid column 3
-        $fields = $importField->fieldImportConfig['columns'] ?? [];
-        $grid = [];
+        $fields = $DG->settings['cf'][$fieldName . '_columns'];
+
+        $grid = array();
 
         // Loop over columns
-        foreach ($gridColumns as $column) {
+        foreach ($grid_columns as $column) {
             $colId = $column['col_id'];
-            $colType = $column['col_type'];
-            $colSettings = json_decode($column['col_settings'] ?? '', true);
+
+            if (preg_match('/\/(\d+)\/(\d+)\//', $fields[$colId], $matches)) {
+                $DG->logger->log(sprintf(
+                    'Your data structure appears to be too deeply nested to import: %s',
+                    $fields[$colId]
+                ));
+            }
+
             // Loop over data items
             if (
-                isset($fields[$colId]['value']) &&
-                $importField->importer->dataType->initialise_sub_item()
+                isset($fields[$colId]) &&
+                $DG->dataType->initialise_sub_item($item, $fields[$colId], $DG->settings, $fieldName)
             ) {
-                $subItem = $importField->importer->dataType->get_sub_item(
-                    $importField->importItem,
-                    $fields[$colId]['value'],
-                    $importField->importer->settings,
-                    $importField->fieldName,
-                    $column
-                );
+                $subItem = $DG->dataType->get_sub_item($item, $fields[$colId], $DG->settings, $fieldName, $column);
                 $rowNum = 1;
                 $rowId = 'new_row_' . $rowNum;
 
@@ -293,39 +168,66 @@ class Datagrab_grid extends AbstractFieldType
                         $grid[$rowId] = [];
                     }
 
-                    $handler = $importField->importer->getLoader()->loadFieldTypeHandler($colType);
+                    switch ($column['col_type']) {
+                        case 'assets':
+                            $assetsFiles = [];
+                            $fileNames = explode(',', $subItem);
 
-                    if (
-                        in_array($colType, $this->supportedFieldTypes)
-                        && method_exists($handler, 'preparePostData')
-                    ) {
-                        $handler->fieldPrefix = $importField->fieldName . '[columns]';
-                        $fieldImportConfig = $fields[$colId] ?? [];
+                            foreach ($fileNames as $fileName) {
+                                if (preg_match('/{filedir_([0-9]+)}/', $fileName, $matches)) {
+                                    $file = [
+                                        'filedir' => $matches[1],
+                                        'filename' => str_replace($matches[0], '', $fileName)
+                                    ];
 
-                        // nomenclature seems odd, but we're preparing to save in a Grid field
-                        $grid[$rowId]['col_id_' . $colId] = $handler->preparePostData(new ImportField(
-                            importer: $importField->importer,
-                            importItem: $importField->importItem,
-                            propertyName: $fields[$colId]['value'],
-                            propertyValue: $subItem,
-                            fieldImportConfig: $fieldImportConfig,
-                            fieldSettings: $colSettings,
-                            entryId: $importField->entryId,
-                            fieldName: $importField->fieldName,
-                            fieldId: $importField->fieldId,
-                            contentType: 'grid',
-                        ));
-                    } else {
-                        $grid[$rowId]['col_id_' . $colId] = $subItem;
+                                    $query = ee('db')
+                                        ->select('file_id')
+                                        ->where('file_name', $file['filename'])
+                                        ->where('filedir_id', $file['filedir'])
+                                        ->get('exp_assets_files');
+
+                                    if ($query->num_rows() > 0) {
+                                        $assetsFiles[] = $query->row('file_id');
+                                    }
+                                } else {
+                                    $query = ee('db')
+                                        ->select('file_id')
+                                        ->where('file_name', $fileName)
+                                        ->get('exp_assets_files');
+
+                                    if ($query->num_rows() > 0) {
+                                        $assetsFiles[] = $query->row('file_id');
+                                    }
+                                }
+                            }
+
+                            if (!empty($assetsFiles)) {
+                                $grid[$rowId]['col_id_' . $colId] = $assetsFiles;
+                            }
+                            break;
+
+                        case "date":
+                            $timestamp = $DG->parseDate($subItem);
+                            $date = date("Y-m-d g:i A", $timestamp);
+                            $grid[$rowId]['col_id_' . $colId] = $date;
+                            break;
+
+                        case 'file':
+                            $grid[$rowId]['col_id_' . $colId] = $DG->getFile(
+                                $subItem,
+                                $DG->settings['cf'][$fieldName . '_extra1'][$colId],
+                                $DG->settings['cf'][$fieldName . '_extra2'][$colId] == 1
+                            );
+                            break;
+
+                        // @todo should support Relationships too. Would require refactoring datagrab_relationship
+                        // so either file can parse the data without repeating the code
+                        default:
+                            $grid[$rowId]['col_id_' . $colId] = $subItem;
+                            break;
                     }
 
-                    $subItem = $importField->importer->dataType->get_sub_item(
-                        $importField->importItem,
-                        $fields[$colId]['value'],
-                        $importField->importer->settings,
-                        $importField->fieldName,
-                        $column
-                    );
+                    $subItem = $DG->dataType->get_sub_item($item, $fields[$colId], $DG->settings, $fieldName);
 
                     $rowNum++;
                     $rowId = 'new_row_' . $rowNum;
@@ -334,8 +236,7 @@ class Datagrab_grid extends AbstractFieldType
         }
 
         // Remove empty rows
-        $newGrid = [];
-
+        $newgrid = array();
         foreach ($grid as $idx => $row) {
             $empty = true;
             foreach ($row as $col) {
@@ -345,90 +246,73 @@ class Datagrab_grid extends AbstractFieldType
                 }
             }
             if (!$empty) {
-                $newGrid[$idx] = $row;
+                $newgrid[$idx] = $row;
             }
         }
+        $grid = $newgrid;
 
-        $grid = $newGrid;
-
-        if ($importField->entryId) {
+        if ($updateEntryId) {
             // Find out what to do with existing data (delete or keep?)
             $unique = 0;
-            if (isset($importField->fieldImportConfig['unique'])) {
-                $unique = $importField->fieldImportConfig['unique'];
+            if (isset($DG->settings['cf'][$fieldName . '_unique'])) {
+                $unique = $DG->settings['cf'][$fieldName . '_unique'];
             }
 
             // Is this the first time this entry has been updated during this import?
-            if (!in_array($importField->entryId, $importField->importer->entries)) {
+            if (!in_array($updateEntryId, $DG->entries)) {
                 // This is the first import, so delete existing rows if required
                 if ($unique == -1) {
                     // Delete existing rows
-                    //$importer->logger->log('Remove existing rows from the Grid field, if any exist.');
-                    $old = [];
+                    //$DG->logger->log('Remove existing rows from the Grid field, if any exist.');
+                    $old = array();
                 } else {
                     // Keep existing rows
                     // Fetch existing data
-                    //$importer->logger->log('Keep existing rows from the Grid field.');
-                    $old = $this->_rebuild_grid_data($importField->entryId, $importField->importer, $importField->fieldId);
+                    //$DG->logger->log('Keep existing rows from the Grid field.');
+                    $old = $this->_rebuild_grid_data($updateEntryId, $DG, $fieldId);
                 }
             } else {
                 // Fetch existing data
-                $old = $this->_rebuild_grid_data($importField->entryId, $importField->importer, $importField->fieldId);
+                $old = $this->_rebuild_grid_data($updateEntryId, $DG, $fieldId);
             }
 
             // "Action to take when an entry is updated" - If $unique is set to a positive int value, then it's a
             // col_id from the config array to only update the row if the new column value does not match
             // the existing, column value.
             if ($unique > 0) {
-                // @todo somewhere in here, if using Publisher, the rows are not imported correctly. Unsure why.
-                // It seems to work fine if not using the matching/unique value option.
                 $indexedGrid = array_values($grid);
                 $indexedOld = array_values($old);
                 foreach ($indexedGrid as $index => $rowData) {
-                    $currentRow = $indexedOld[$index] ?? [];
+                    $currentRow = $indexedOld[$index];
                     if (
                         isset($currentRow['col_id_' . $unique]) &&
                         $currentRow['col_id_' . $unique] !== $rowData['col_id_' . $unique]
-
-                        // @todo try to match on lang id and status here too, see if that makes a diff
-                        // && $currentRow['publisher_lang_id'] === $rowData['publisher_lang_id']
-                        // && $currentRow['publisher_status'] === $rowData['publisher_status']
-                        // This doesn't work b/c rowData does not have publisher_ columns in them
-
                     ) {
-                        $importField->importer->logger->log(sprintf(
-                            '"%s" does not match "%s", appending Grid row.',
-                            $currentRow['col_id_' . $unique],
-                            $rowData['col_id_' . $unique]
-                        ));
+                        $DG->logger->log(sprintf('"%s" does not match "%s", appending Grid row.', $currentRow['col_id_' . $unique], $rowData['col_id_' . $unique]));
                         $grid = array_merge($old, $grid);
                     }
                 }
             } elseif (!empty($old)) {
-                $importField->importer->logger->log('Appending new row(s) to Grid');
+                $DG->logger->log('Appending new row(s) to Grid');
                 $grid = array_merge($old, $grid);
             }
         }
 
-        if (empty($grid)) {
-            return [];
-        }
-
-        return $grid;
+        $data['field_id_' . $fieldId] = $grid;
     }
 
-    private function _rebuild_grid_data($entry_id, $importer, $field_id)
+    private function _rebuild_grid_data($entry_id, $DG, $field_id)
     {
         $where = [
             'entry_id' => $entry_id,
         ];
 
         // -------------------------------------------
-        //  'datagrab_rebuild_grid_query' hook
+        //  'ajw_datagrab_rebuild_grid_query' hook
         //
-        if ($importer->extensions->active_hook('datagrab_rebuild_grid_query')) {
-            $importer->logger->log('Calling datagrab_rebuild_grid_query() hook.');
-            $query = $importer->extensions->call('datagrab_rebuild_grid_query', $where, $field_id);
+        if ($DG->extensions->active_hook('ajw_datagrab_rebuild_grid_query')) {
+            $DG->logger->log('Calling ajw_datagrab_rebuild_grid_query() hook.');
+            $query = $DG->extensions->call('ajw_datagrab_rebuild_grid_query', $where, $field_id);
         } else {
             ee()->db->select('*');
             ee()->db->from('exp_channel_grid_field_' . $field_id);
@@ -445,35 +329,9 @@ class Datagrab_grid extends AbstractFieldType
             unset($row['row_id']);
             unset($row['entry_id']);
             unset($row['row_order']);
-
             $grid['row_id_' . $row_id] = $row;
         }
 
         return $grid;
-    }
-
-    /**
-     * Grid fields require the parent path to be set in the configuration and we validate just
-     * the parent, not each column. It's up to the parent field, e.g. Fluid in this case, to
-     * extract and handle the Grid sub data.
-     */
-    public function validatePath(string $path, array $settings): string|bool
-    {
-        $columns = $settings['columns'] ?? [];
-        $value = $settings['value'] ?? '';
-
-        if (empty($columns) || !$value) {
-            return false;
-        }
-
-        $keyPatternMatch = preg_replace('/(?<=\/){n}(?=\/)/', '\d+', $value ?? '');
-        $preparedPattern = preg_replace('~(?<!\\\)/~', '\/', $keyPatternMatch);
-        preg_match('/'. $preparedPattern .'$/', $path, $matches);
-
-        if (!empty(array_filter($matches))) {
-            return $matches[0];
-        }
-
-        return false;
     }
 }

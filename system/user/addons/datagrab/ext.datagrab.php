@@ -1,9 +1,7 @@
 <?php
 
-use BoldMinded\DataGrab\Dependency\Litzinger\Basee\App;
 use BoldMinded\DataGrab\Dependency\Litzinger\Basee\License;
 use BoldMinded\DataGrab\Dependency\Litzinger\Basee\Setting;
-use BoldMinded\DataGrab\Dependency\Litzinger\Basee\Version;
 
 /**
  * @package     ExpressionEngine
@@ -67,32 +65,28 @@ class Datagrab_ext
             $scripts[] = ee()->extensions->last_call;
         }
 
-        // Don't load unnecessary files when it's a frontedit modal.
-        if (App::isFrontEditRequest()) {
-            return implode('', $scripts);
+        /** @var Setting $setting */
+        $setting = ee('datagrab:Setting');
+
+        $license = new License('https://license.boldminded.com', 'datagrab', [
+            'a'   => DATAGRAB_NAME,
+            'api' => '1',
+            'b'   => DATAGRAB_BUILD_VERSION,
+            'd'   => ee()->config->item('base_url'),
+            'e'   => APP_VER,
+            'i'   => 2365,
+            'l'   => $setting->get('license'),
+            'p'   => phpversion(),
+            's'   => ee()->config->item('site_id'),
+            'v'   => DATAGRAB_VERSION,
+        ]);
+
+        $response = $license->validate();
+
+        if ($response) {
+            $scripts[] = $response;
         }
 
-        $modules[] = $this->versionCheck();
-
-        return implode('', $scripts) . implode('', $modules);
-    }
-
-    private function versionCheck(bool $checkForUpdates = true): string
-    {
-        if ($checkForUpdates) {
-            $version = new Version();
-            $latest = $version->setAddon('datagrab')->fetchLatest();
-
-            if (isset($latest->version) && version_compare($latest->version, DATAGRAB_VERSION, '>')) {
-                /** @var Setting $setting */
-                $setting = ee('datagrab:Setting');
-
-                $url = sprintf('https://boldminded.com/account/licenses?l=%s', $setting->get('license'));
-                $script = License::getUpdateAvailableNotice('datagrab', $url);
-                return preg_replace("/\s+/", " ", $script);
-            }
-        }
-
-        return '';
+        return preg_replace("/\s+/", " ", implode('', $scripts));
     }
 }

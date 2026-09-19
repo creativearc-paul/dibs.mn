@@ -1,9 +1,5 @@
 <?php
 
-use BoldMinded\DataGrab\FieldTypes\AbstractFieldType;
-use BoldMinded\DataGrab\FieldTypes\ImportField;
-use BoldMinded\DataGrab\Service\Importer;
-
 /**
  * DataGrab Low Events fieldtype class
  *
@@ -13,187 +9,162 @@ use BoldMinded\DataGrab\Service\Importer;
  */
 class Datagrab_low_events extends AbstractFieldType
 {
-    protected string $docUrl = 'https://docs.boldminded.com/datagrab/docs/field-types/low-events';
-
-    private static $preparedData = [];
-
-    public function register_setting(string $fieldName): array
+    public function register_setting(string $field_name): array
     {
-
         return [
-            $fieldName => [
-                'start_date',
-                'start_time',
-                'end_date',
-                'end_time',
-                'all_day',
-            ]
+            $field_name . "_low_events_start_date",
+            $field_name . "_low_events_start_time",
+            $field_name . "_low_events_end_date",
+            $field_name . "_low_events_end_time",
+            $field_name . "_low_events_all_day"
         ];
     }
 
-    public function display_configuration(Importer $importer, string $fieldName, string $fieldLabel, string $fieldType, bool $fieldRequired = false, array $data = []): array
+    public function display_configuration(Datagrab_model $DG, string $fieldName, string $fieldLabel, string $fieldType, bool $fieldRequired = false, array $data = []): array
     {
         $config = [];
-        $config['label'] = $this->displayLabel($fieldLabel, $fieldName, $fieldRequired, 'calendar');
-        $fieldSettings = $data['field_settings'][$fieldName] ?? [];
-
-        $fieldSets = ee('View')
-            ->make('ee:_shared/form/section')
-            ->render([
-                'name' => 'fieldset_group',
-                'settings' => $this->getFormFields(
-                    $fieldName,
-                    $fieldSettings,
-                    $data,
-                    $this->getSavedFieldValues($data, $fieldName),
-                )
-            ]);
-
-        $config['value'] = $fieldSets;
+        $config["label"] = "<p>" .
+            form_label($fieldLabel);
+        if ($fieldRequired) {
+            $config["label"] .= ' <span class="datagrab_required">*</span>';
+        }
+        $config["label"] .= '<div class="datagrab_subtext">' . $fieldType . "</div>";
+        /*  . NBS .
+        anchor("http://brandnewbox.co.uk/support/details/importing_into_playa_fields_with_datagrab", "(?)", 'class="datagrab_help"');
+        */
+        $config["value"] = "Start date: " . NBS .
+            form_hidden($fieldName, "y") . form_dropdown(
+                $fieldName . "_low_events_start_date", $data["data_fields"],
+                isset($data["default_settings"]["cf"][$fieldName . "_low_events_start_date"]) ?
+                    $data["default_settings"]["cf"][$fieldName . "_low_events_start_date"] : ''
+            ) .
+            "</p><p>" . "Start time: " . NBS .
+            form_dropdown(
+                $fieldName . "_low_events_start_time",
+                $data["data_fields"],
+                (isset($data["default_settings"]["cf"][$fieldName . "_low_events_start_time"]) ?
+                    $data["default_settings"]["cf"][$fieldName . "_low_events_start_time"] : '')
+            ) .
+            "</p><p>" . "End date: " . NBS .
+            form_dropdown(
+                $fieldName . "_low_events_end_date",
+                $data["data_fields"],
+                (isset($data["default_settings"]["cf"][$fieldName . "_low_events_end_date"]) ?
+                    $data["default_settings"]["cf"][$fieldName . "_low_events_end_date"] : '')
+            ) .
+            "</p><p>" . "End time: " . NBS .
+            form_dropdown(
+                $fieldName . "_low_events_end_time",
+                $data["data_fields"],
+                (isset($data["default_settings"]["cf"][$fieldName . "_low_events_end_time"]) ?
+                    $data["default_settings"]["cf"][$fieldName . "_low_events_end_time"] : '')
+            ) .
+            "</p><p>" . "All day?: " . NBS .
+            form_dropdown(
+                $fieldName . "_low_events_all_day",
+                $data["data_fields"],
+                (isset($data["default_settings"]["cf"][$fieldName . "_low_events_all_day"]) ?
+                    $data["default_settings"]["cf"][$fieldName . "_low_events_all_day"] : '')
+            ) .
+            "</p>";
 
         return $config;
     }
 
-    public function getFormFields(
-        string $fieldName,
-        array $fieldSettings,
-        array $data = [],
-        array $savedFieldValues = [],
-        string $contentType = 'channel',
-    ): array
+    public function prepare_post_data(Datagrab_model $DG, array $item = [], int $fieldId = 0, string $fieldName = '', array &$data = [], int $updateEntryId = 0)
     {
-        ee()->db->select('id as calendar_id, name as title');
-        ee()->db->from('calendar_calendars');
-        $query = ee()->db->get();
+        $event = array(
+            "start_date" => "",
+            "start_time" => "",
+            "end_time" => "",
+            "end_date" => "",
+            "all_day" => ""
+        );
 
-        $calendars = array_column($query->result_array(), 'title', 'calendar_id');
+        if ($DG->settings["cf"][$fieldName . "_low_events_start_date"] != "") {
+            $event["start_date"] = $DG->dataType->get_item($item, $DG->settings["cf"][$fieldName . "_low_events_start_date"]);
+            $event["start_date"] = $this->_parse_date($event["start_date"]);
+        }
+        if ($DG->settings["cf"][$fieldName . "_low_events_start_time"] != "") {
+            $event["start_time"] = $DG->dataType->get_item($item, $DG->settings["cf"][$fieldName . "_low_events_start_time"]);
+            $event["start_time"] = $this->_parse_time($event["start_time"]);
+        }
+        if ($DG->settings["cf"][$fieldName . "_low_events_end_date"] != "") {
+            $event["end_date"] = $DG->dataType->get_item($item, $DG->settings["cf"][$fieldName . "_low_events_end_date"]);
+            $event["end_date"] = $this->_parse_date($event["end_date"]);
+        }
+        if ($DG->settings["cf"][$fieldName . "_low_events_start_date"] != "") {
+            $event["end_time"] = $DG->dataType->get_item($item, $DG->settings["cf"][$fieldName . "_low_events_end_time"]);
+            $event["end_time"] = $this->_parse_time($event["end_time"]);
+        }
+        if ($DG->settings["cf"][$fieldName . "_low_events_all_day"] != "") {
+            $event["all_day"] = $DG->dataType->get_item($item, $DG->settings["cf"][$fieldName . "_low_events_all_day"]);
+        }
 
-        $fieldOptions[] = [
-            'title' => 'Start Date',
-            'desc' => '',
-            'fields' => [
-                $fieldName . '[start_date][value]' => [
-                    'type' => 'dropdown',
-                    'choices' => $data['data_fields'],
-                    'value' => $savedFieldValues['start_date']['value'] ?? '',
-                ]
-            ]
-        ];
-
-        $fieldOptions[] = [
-            'title' => 'Start Time',
-            'desc' => '',
-            'fields' => [
-                $fieldName . '[start_time][value]' => [
-                    'type' => 'dropdown',
-                    'choices' => $data['data_fields'],
-                    'value' => $savedFieldValues['start_time']['value'] ?? '',
-                ]
-            ]
-        ];
-
-        $fieldOptions[] = [
-            'title' => 'End Date',
-            'desc' => '',
-            'fields' => [
-                $fieldName . '[end_date][value]' => [
-                    'type' => 'dropdown',
-                    'choices' => $data['data_fields'],
-                    'value' => $savedFieldValues['end_date']['value'] ?? '',
-                ]
-            ]
-        ];
-
-        $fieldOptions[] = [
-            'title' => 'End Time',
-            'desc' => '',
-            'fields' => [
-                $fieldName . '[end_time][value]' => [
-                    'type' => 'dropdown',
-                    'choices' => $data['data_fields'],
-                    'value' => $savedFieldValues['end_time']['value'] ?? '',
-                ]
-            ]
-        ];
-
-        $fieldOptions[] = [
-            'title' => 'All Day',
-            'desc' => 'Boolean value, e.g. 0/1, y/n, yes/no, true/false',
-            'fields' => [
-                $fieldName . '[all_day][value]' => [
-                    'type' => 'dropdown',
-                    'choices' => $data['data_fields'],
-                    'value' => $savedFieldValues['all_day']['value'] ?? '',
-                ]
-            ]
-        ];
-
-        return $fieldOptions;
+        $data["field_id_" . $fieldId] = $event;
     }
 
-    public function preparePostData(ImportField $importField)
-    {
-        $event = [];
-
-        $config = $importField->fieldImportConfig;
-        $startDate = $config['start_date']['value'] ?? '';
-        $startTime = $config['start_time']['value'] ?? '';
-        $endDate = $config['end_date']['value'] ?? '';
-        $endTime = $config['end_time']['value'] ?? '';
-        $allDay = $config['all_day']['value'] ?? '';
-
-        if ($startDate) {
-            $event['start_date'] = $this->formatDate($importField->importer->dataType->get_item($importField->importItem, $startDate));
-        }
-        if ($startTime) {
-            $event['start_time'] = $this->formatDate($importField->importer->dataType->get_item($importField->importItem, $startTime), 'H:i');
-        }
-        if ($endDate) {
-            $event['end_date'] = $this->formatDate($importField->importer->dataType->get_item($importField->importItem, $endDate));
-        }
-        if ($endTime) {
-            $event['end_time'] = $this->formatDate($importField->importer->dataType->get_item($importField->importItem, $endTime), 'H:i');
-        }
-        // Only if we have date or times elsewhere do we want to add this
-        if ($allDay && !empty($event)) {
-            // Accept any bool value, but then force it to 'y' so Low Events validation is happy
-            $isAllDay = get_bool_from_string($importField->importer->dataType->get_item($importField->importItem, $allDay));
-            $event['all_day'] = $isAllDay ? 'y' : 'n';
-        }
-
-        // Send back null if no event data, then Low Events returns early when saving
-        if (empty($event)) {
-            $event = null;
-        }
-
-        self::$preparedData = $event;
-
-        return $event;
-    }
-
-    public function finalPostData(ImportField $importField)
+    public function final_post_data(Datagrab_model $DG, array $item = [], int $fieldId = 0, string $fieldName = '', array &$data = [], int $updateEntryId = 0)
     {
         // Somewhere along the way this array is saved to exp_channel_data as a json object,
         // but for add-ons, such as Publisher, which store data in a separate table it also
         // needs the value as a json object, thus we encode it here sooner in the import process.
-        // Low Events also decodes this in it's save() function.
-        if (self::$preparedData === null) {
-            return null;
+        if (isset($data['field_id_' . $fieldId])) {
+            $data['field_id_' . $fieldId] = json_encode($data['field_id_' . $fieldId]);
         }
-
-        return json_encode(self::$preparedData);
     }
 
-    private function formatDate(string $dateString, string $responseFormat = 'Y-m-d'): string
+    public function rebuild_post_data(Datagrab_model $DG, int $fieldId = 0, array &$data = [], array $existingData = [])
     {
-        $timestamp = strtotime(str_replace('-', '/', $dateString));
+    }
 
-        if ($timestamp === false) {
-            return '';
+    function _parse_date($date)
+    {
+        // Is date already in correct format? If so, just return it
+        if (preg_match('/^(19|20)\d\d-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])$/', $date)) {
+            return $date;
         }
 
-        $date = (new DateTimeImmutable())->setTimestamp($timestamp);
+        // If not, try and convert it timestamp and format it correctly
+        $datestr = $date;
 
-        return $date->format($responseFormat);
+        // Wild assumption that if site is set to "eu" then the data
+        // will also be in eu format not us
+        if (ee()->config->item('time_format') == "eu") {
+            $datestr = str_replace("/", "-", $datestr);
+        }
+
+        $ndate = strtotime($datestr);
+
+        if ($ndate !== false) {
+            return date('Y-m-d', $ndate); // YYYY-MM-DD
+        }
+
+        return $date;
+    }
+
+    function _parse_time($date)
+    {
+        // Is time already in correct format? If so, just return it
+        if (preg_match('/^(?:0?[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/', $date)) {
+            return $date;
+        }
+
+        // If not, try and convert it timestamp and format it correctly
+        $datestr = $date;
+
+        // Wild assumption that if site is set to "eu" then the data
+        // will also be in eu format not us
+        if (ee()->config->item('time_format') == "eu") {
+            $datestr = str_replace("/", "-", $datestr);
+        }
+
+        $ndate = strtotime($datestr);
+
+        if ($ndate !== false) {
+            return date('H:i', $ndate); // HH:MM
+        }
+
+        return $date;
     }
 }

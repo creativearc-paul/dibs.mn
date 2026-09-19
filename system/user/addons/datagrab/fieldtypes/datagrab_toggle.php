@@ -1,8 +1,5 @@
 <?php
 
-use BoldMinded\DataGrab\FieldTypes\AbstractFieldType;
-use BoldMinded\DataGrab\FieldTypes\ImportField;
-
 /**
  * DataGrab Toggle fieldtype class
  *
@@ -12,15 +9,13 @@ use BoldMinded\DataGrab\FieldTypes\ImportField;
  */
 class Datagrab_toggle extends AbstractFieldType
 {
-    public function finalPostData(ImportField $importField)
+    public function prepare_post_data(Datagrab_model $DG, array $item = [], int $fieldId = 0, string $fieldName = '', array &$data = [], int $updateEntryId = 0)
     {
-        $value = $importField->importer->dataType->get_item($importField->importItem, $importField->propertyName);
-        $returnValue = 0;
+        $value = $DG->dataType->get_item($item, $DG->settings["cf"][$fieldName]);
+        $data["field_id_" . $fieldId] = 0;
 
-        if (in_array($value, ['y', 'yes', 'true', 1, '1', 'on'])) {
-            $returnValue = 1;
+        if ($value == "y" || $value == "yes" || $value == "true" || $value == 1 || $value == "on") {
+            $data["field_id_" . $fieldId] = 1;
         }
-
-        return $returnValue;
     }
 }

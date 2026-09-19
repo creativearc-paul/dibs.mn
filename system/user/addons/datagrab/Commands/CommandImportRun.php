@@ -42,9 +42,6 @@ class CommandImportRun extends Cli {
         'limit,limit:' => 'Total number of entries to limit to each worker process',
         'producer' => 'Run producer only',
         'consumer' => 'Run consumer only',
-        'params,params:' => 'Pass additional parameters to the import URL, e.g. --params="productId=123&size=large".',
-        'force_update,force:' => 'Override "Update" setting and force entries to be updated based on matching criteria.',
-        'filename:' => 'Change the filename or path to a file to import at runtime.'
     ];
 
     /**
@@ -63,9 +60,6 @@ class CommandImportRun extends Cli {
         $producer = $this->option('--producer');
         $consumer = $this->option('--consumer');
         $limit = $this->option('--limit');
-        $params = $this->option('--params');
-        $forceUpdate = $this->option('--force_update');
-        $fileName = $this->option('--filename');
 
         // Fetch import settings
         $query = ee()->db->where('id', $importId)->get('datagrab');
@@ -76,16 +70,11 @@ class CommandImportRun extends Cli {
         }
 
         $row = $query->row_array();
-        $this->settings = json_decode($row["settings"], true);
+        $this->settings = unserialize($row["settings"]);
         $importName = $row['name'];
 
         if ($row['passkey'] != '' && $row['passkey'] != $passKey) {
             $this->output->outln('<<redbg>>Import aborted. Passkey required, but none provided.<<reset>>');
-            exit;
-        }
-
-        if (!extension_loaded('pcntl')) {
-            $this->output->outln('<<red>>PCNTL extension is NOT installed.<<reset>>');
             exit;
         }
 
@@ -95,7 +84,9 @@ class CommandImportRun extends Cli {
         // Initialise
         ee()->load->library('session');
         ee()->load->add_package_path(PATH_THIRD . 'datagrab');
+        ee()->load->model('datagrab_model', 'datagrab');
         ee()->lang->loadfile('datagrab');
+        ee()->datagrab->initialise_types();
 
         $this->settings['import']['id'] = $importId;
         $this->settings['import']['passkey'] = $passKey;
@@ -103,19 +94,6 @@ class CommandImportRun extends Cli {
 
         if ($limit !== null) {
             $this->settings['import']['limit'] = (int) $limit;
-        }
-
-        if ($fileName) {
-            $this->settings['datatype']['filename'] = $fileName;
-        }
-
-        if ($params !== null) {
-            $fn = $this->settings['datatype']['filename'];
-            $this->settings['datatype']['filename'] = $fn . (str_contains($fn, '?') ? '&' . $params : '?' . $params);
-        }
-
-        if ($forceUpdate !== null) {
-            $this->settings['config']['update'] = 'y';
         }
 
         try {
@@ -132,21 +110,21 @@ class CommandImportRun extends Cli {
                 $shouldConsume = false;
             }
 
-            $importer = ee('datagrab:Importer');
-            $importer->setup(
-                    $importer->datatypes[$this->settings['import']['type']],
+            $dg = ee()->datagrab
+                ->setup(
+                    ee()->datagrab->datatypes[$this->settings['import']['type']],
                     $this->settings,
                     $shouldProduce
                 );
 
             if ($shouldProduce) {
                 $this->output->outln('<<dim>>Queueing...<<reset>>');
-                $importer->resetImport()->produceJobs();
+                $dg->resetImport()->produceJobs();
             }
 
             if ($shouldConsume) {
                 $this->output->outln('<<dim>>Consuming...<<reset>>');
-                $importer->consumeJobs();
+                $dg->consumeJobs();
             }
 
         } catch (Error $error) { // Catch EE Core exceptions

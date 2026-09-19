@@ -10,7 +10,7 @@ class WorkerStoppingListener extends AbstractListener
 {
     public function handle(WorkerStopping $event)
     {
-        ee('datagrab:Importer')->updateStatus(ImportStatus::WAITING);
+        ee()->datagrab->updateStatus(ImportStatus::WAITING);
 
         $message = 'WORKER STOPPED: ';
 
@@ -22,7 +22,7 @@ class WorkerStoppingListener extends AbstractListener
             $message .= 'success';
         }
 
-        ee('datagrab:Importer')->logger->log($message);
+        ee()->datagrab->logger->log($message);
 
         if ($this->isCli()) {
             echo PHP_EOL . 'Worker Stopped' . PHP_EOL;

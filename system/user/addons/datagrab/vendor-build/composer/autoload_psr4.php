@@ -6,8 +6,8 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname(dirname(dirname($vendorDir)));
 
 return array(
-    'BoldMinded\\DataGrab\\FieldTypes\\' => array($baseDir . '/addons/datagrab/fieldtypes'),
     'BoldMinded\\DataGrab\\Dependency\\voku\\' => array($vendorDir . '/voku/portable-ascii/src/voku'),
+    'BoldMinded\\DataGrab\\Dependency\\Symfony\\Polyfill\\Php81\\' => array($vendorDir . '/symfony/polyfill-php81'),
     'BoldMinded\\DataGrab\\Dependency\\Symfony\\Polyfill\\Php80\\' => array($vendorDir . '/symfony/polyfill-php80'),
     'BoldMinded\\DataGrab\\Dependency\\Symfony\\Polyfill\\Php73\\' => array($vendorDir . '/symfony/polyfill-php73'),
     'BoldMinded\\DataGrab\\Dependency\\Symfony\\Polyfill\\Mbstring\\' => array($vendorDir . '/symfony/polyfill-mbstring'),
@@ -27,8 +27,6 @@ return array(
     'BoldMinded\\DataGrab\\Dependency\\Psr\\Container\\' => array($vendorDir . '/psr/container/src'),
     'BoldMinded\\DataGrab\\Dependency\\Opis\\Closure\\' => array($vendorDir . '/opis/closure/src'),
     'BoldMinded\\DataGrab\\Dependency\\Litzinger\\Basee\\' => array($vendorDir . '/litzinger/basee/src'),
-    'BoldMinded\\DataGrab\\Dependency\\League\\Csv\\' => array($vendorDir . '/league/csv/src'),
-    'BoldMinded\\DataGrab\\Dependency\\League\\Container\\' => array($vendorDir . '/league/container/src'),
     'BoldMinded\\DataGrab\\Dependency\\Laravel\\SerializableClosure\\' => array($vendorDir . '/laravel/serializable-closure/src'),
     'BoldMinded\\DataGrab\\Dependency\\Illuminate\\Support\\' => array($vendorDir . '/illuminate/collections', $vendorDir . '/illuminate/macroable', $vendorDir . '/illuminate/support'),
     'BoldMinded\\DataGrab\\Dependency\\Illuminate\\Redis\\' => array($vendorDir . '/illuminate/redis'),
@@ -43,10 +41,7 @@ return array(
     'BoldMinded\\DataGrab\\Dependency\\Illuminate\\Bus\\' => array($vendorDir . '/illuminate/bus'),
     'BoldMinded\\DataGrab\\Dependency\\Doctrine\\Inflector\\' => array($vendorDir . '/doctrine/inflector/lib/Doctrine/Inflector'),
     'BoldMinded\\DataGrab\\Dependency\\Carbon\\' => array($vendorDir . '/nesbot/carbon/src/Carbon'),
-    'BoldMinded\\DataGrab\\Dependency\\Cake\\Utility\\' => array($vendorDir . '/cakephp/utility'),
-    'BoldMinded\\DataGrab\\Dependency\\Cake\\Core\\' => array($vendorDir . '/cakephp/core'),
     'BoldMinded\\DataGrab\\Dependency\\Brick\\Math\\' => array($vendorDir . '/brick/math/src'),
     'BoldMinded\\DataGrab\\Dependency\\Bamarni\\Composer\\Bin\\' => array($vendorDir . '/bamarni/composer-bin-plugin/src'),
-    'BoldMinded\\DataGrab\\DataTypes\\' => array($baseDir . '/addons/datagrab/datatypes'),
     'BoldMinded\\DataGrab\\' => array($baseDir . '/addons/datagrab'),
 );

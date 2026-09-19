@@ -1,9 +1,5 @@
 <?php
 
-use BoldMinded\DataGrab\FieldTypes\AbstractFieldType;
-use BoldMinded\DataGrab\FieldTypes\ImportField;
-use BoldMinded\DataGrab\Service\Importer;
-
 /**
  * DataGrab Calendar fieldtype class
  *
@@ -13,296 +9,199 @@ use BoldMinded\DataGrab\Service\Importer;
  */
 class Datagrab_calendar extends AbstractFieldType
 {
-    public function register_setting(string $fieldName): array
+    public function register_setting(string $field_name): array
     {
         return [
-            $fieldName => [
-                'start_time',
-                'end_time',
-                'field',
-            ]
+            $field_name . "_calendar_start_time",
+            $field_name . "_calendar_end_time",
+            $field_name . "_calendar_field"
         ];
     }
 
-    public function display_configuration(Importer $importer, string $fieldName, string $fieldLabel, string $fieldType, bool $fieldRequired = false, array $data = []): array
+    public function display_configuration(Datagrab_model $DG, string $fieldName, string $fieldLabel, string $fieldType, bool $fieldRequired = false, array $data = []): array
     {
         $config = [];
-        $config['label'] = $this->displayLabel($fieldLabel, $fieldName, $fieldRequired, 'calendar');
-        $fieldSettings = $data['field_settings'][$fieldName] ?? [];
 
-        $fieldSets = ee('View')
-            ->make('ee:_shared/form/section')
-            ->render([
-                'name' => 'fieldset_group',
-                'settings' => $this->getFormFields(
-                    $fieldName,
-                    $fieldSettings,
-                    $data,
-                    $this->getSavedFieldValues($data, $fieldName),
-                )
-            ]);
+        ee()->db->select("id as calendar_id, name as title");
+        ee()->db->from("exp_calendar_calendars");
+        $query = ee()->db->get();
+        $calendars = [];
+        foreach ($query->result_array() as $row) {
+            $calendars[$row["calendar_id"]] = $row["title"];
+        }
 
-        $config['value'] = $fieldSets;
+        $config["label"] = form_label($fieldLabel);
+        if ($fieldRequired) {
+            $config["label"] .= ' <span class="datagrab_required">*</span>';
+        }
+        $config["label"] .= '<div class="datagrab_subtext">' . $fieldType . "</div>";
+
+        //  . NBS . anchor("http://brandnewbox.co.uk/support/details/importing_into_calendar_fields_with_datagrab", "(?)", 'class="datagrab_help"');
+
+        $config["value"] =
+            "<p>Start time: " . NBS .
+            form_dropdown(
+                $fieldName . "_calendar_start_time",
+                $data["data_fields"],
+                isset($data["default_settings"]["cf"][$fieldName . "_calendar_start_time"]) ?
+                    $data["default_settings"]["cf"][$fieldName . "_calendar_start_time"] : ''
+            ) . NBS . "</p>"
+            . "<p>End time: " . NBS
+            . form_dropdown(
+                $fieldName . "_calendar_end_time",
+                $data["data_fields"],
+                isset($data["default_settings"]["cf"][$fieldName . "_calendar_end_time"]) ?
+                    $data["default_settings"]["cf"][$fieldName . "_calendar_end_time"] : ''
+            )
+            . "</p><p>Add to calendar: " . NBS .
+            form_dropdown(
+                $fieldName,
+                $calendars,
+                (isset($data["default_settings"]["cf"][$fieldName]) ?
+                    $data["default_settings"]["cf"][$fieldName] : '')
+            ) . "</p>";
 
         return $config;
     }
 
-    public function getFormFields(
-        string $fieldName,
-        array $fieldSettings,
-        array $data = [],
-        array $savedFieldValues = [],
-        string $contentType = 'channel',
-    ): array {
-        ee()->db->select('id as calendar_id, name as title');
-        ee()->db->from('calendar_calendars');
-        $query = ee()->db->get();
-
-        $calendars = array_column($query->result_array(), 'title', 'calendar_id');
-
-        $fieldOptions[] = [
-            'title' => 'Start Time',
-            'desc' => '',
-            'fields' => [
-                $fieldName . '[start_time][value]' => [
-                    'type' => 'dropdown',
-                    'choices' => $data['data_fields'],
-                    'value' => $savedFieldValues['start_time']['value'] ?? '',
-                ]
-            ]
-        ];
-
-        $fieldOptions[] = [
-            'title' => 'End Time',
-            'desc' => '',
-            'fields' => [
-                $fieldName . '[end_time][value]' => [
-                    'type' => 'dropdown',
-                    'choices' => $data['data_fields'],
-                    'value' => $savedFieldValues['end_time']['value'] ?? '',
-                ]
-            ]
-        ];
-
-        $fieldOptions[] = [
-            'title' => 'Add to Calendar',
-            'desc' => '',
-            'fields' => [
-                $fieldName . '[field][value]' => [
-                    'type' => 'dropdown',
-                    'choices' => $calendars,
-                    'value' => $savedFieldValues['field']['value'] ?? '',
-                ]
-            ]
-        ];
-
-        $fieldOptions[] = [
-            'title' => 'All Day',
-            'desc' => 'Boolean value, e.g. 0/1, y/n, yes/no, true/false',
-            'fields' => [
-                $fieldName . '[all_day][value]' => [
-                    'type' => 'dropdown',
-                    'choices' => $data['data_fields'],
-                    'value' => $savedFieldValues['all_day']['value'] ?? '',
-                ]
-            ]
-        ];
-
-        $fieldOptions[] = [
-            'title' => 'Repeats',
-            'desc' => '',
-            'fields' => [
-                $fieldName . '[repeats][value]' => [
-                    'type' => 'dropdown',
-                    'choices' => $data['data_fields'],
-                    'value' => $savedFieldValues['repeats']['value'] ?? '',
-                ]
-            ]
-        ];
-
-        $fieldOptions[] = [
-            'title' => 'Interval',
-            'desc' => '',
-            'fields' => [
-                $fieldName . '[interval][value]' => [
-                    'type' => 'dropdown',
-                    'choices' => $data['data_fields'],
-                    'value' => $savedFieldValues['interval']['value'] ?? '1',
-                ]
-            ]
-        ];
-
-        $fieldOptions[] = [
-            'title' => 'Frequency',
-            'desc' => 'Defaults to daily',
-            'fields' => [
-                $fieldName . '[frequency][value]' => [
-                    'type' => 'dropdown',
-                    'choices' => $data['data_fields'],
-                    'value' => $savedFieldValues['frequency']['value'] ?? 'daily',
-                ]
-            ]
-        ];
-
-        $fieldOptions[] = [
-            'title' => 'Until',
-            'desc' => '',
-            'fields' => [
-                $fieldName . '[until][value]' => [
-                    'type' => 'dropdown',
-                    'choices' => $data['data_fields'],
-                    'value' => $savedFieldValues['until']['value'] ?? '',
-                ]
-            ]
-        ];
-
-        $fieldOptions[] = [
-            'title' => 'Exclude',
-            'desc' => 'Exclude dates from calendar',
-            'fields' => [
-                $fieldName . '[exclude][value]' => [
-                    'type' => 'dropdown',
-                    'choices' => $data['data_fields'],
-                    'value' => $savedFieldValues['exclude']['value'] ?? '',
-                ],
-            ]
-        ];
-
-        $fieldOptions[] = [
-            'title' => 'Include',
-            'desc' => 'Include dates from calendar. Only applicable when repeat is enabled, and frequency is "dates".',
-            'fields' => [
-                $fieldName . '[include][value]' => [
-                    'type' => 'dropdown',
-                    'choices' => $data['data_fields'],
-                    'value' => $savedFieldValues['include']['value'] ?? '',
-                ],
-            ]
-        ];
-
-        $fieldOptions[] = [
-            'title' => 'Separator',
-            'desc' => 'When using Exclude or Include dates, how are they separated in your import file?',
-            'fields' => [
-                $fieldName . '[separator][value]' => [
-                    'type' => 'dropdown',
-                    'choices' => [',' => ',', '|' => '|'],
-                    'value' => $savedFieldValues['separator']['value'] ?? ',',
-                ]
-            ]
-        ];
-
-        return $fieldOptions;
-    }
-
-    public function finalPostData(ImportField $importField)
+    public function prepare_post_data(Datagrab_model $DG, array $item = [], int $fieldId = 0, string $fieldName = '', array &$data = [], int $updateEntryId = 0)
     {
-        /*
-            array (
-              'calendar_id' => '1',
-              'start_day' => '01/01/2026',
-              'start_time' => '12:01 am',
-              'all_day' => '1',
-              'end_day' => '01/02/2026',
-              'end_time' => '11:59 pm',
-              'repeats' => '1',
-              'interval' => '3',
-              'freq' => 'daily',
-              'monthly' =>
-              array (
-                'bymonthdayorbyday' => 'bymonthday',
-                'bydayinterval' => '1',
-              ),
-              'yearly' =>
-              array (
-                'bydayinterval' => '1',
-              ),
-              'until' => '01/31/2026',
-              'exclude' =>
-              array (
-                0 => '03/18/2025',
-                1 => '03/20/2025',
-              ),
-              'field_id' => 17,
-            )
-         */
+        // $data[ "field_id_" . $field_id ] = $DG->settings["cf"][ $field ];
 
-        $startTime = $importField->fieldImportConfig['start_time']['value'] ?? '';
-        $endTime = $importField->fieldImportConfig['end_time']['value'] ?? '';
-        $calendarId = $importField->fieldImportConfig['field']['value'] ?? '';
-        $allDay = $importField->fieldImportConfig['all_day']['value'] ?? '';
-        $repeats = $importField->fieldImportConfig['repeats']['value'] ?? '';
-        $until = $importField->fieldImportConfig['until']['value'] ?? '';
-        $interval = $importField->fieldImportConfig['interval']['value'] ?? '';
-        $frequency = $importField->fieldImportConfig['frequency']['value'] ?? '';
-        $include = $importField->fieldImportConfig['include']['value'] ?? '';
-        $exclude = $importField->fieldImportConfig['exclude']['value'] ?? '';
-        $separator = $importField->fieldImportConfig['separator']['value'] ?? '';
+        /* [field_id_33] => Array
+        (
+            [calendar_id] => 1
+            [start_day] => 11/09/2017
+            [start_time] => 12:00 am
+            [all_day] =>
+            [end_day] => 11/09/2017
+            [end_time] => 2:00 am
+            [repeats] =>
+            [interval] => 1
+            [freq] => daily
+            [monthly] => Array
+                (
+                    [bymonthdayorbyday] => bymonthday
+                    [bydayinterval] => 1
+                )
 
-        if ($startTime) {
-            try {
-                $excludeDates = $importField->importer->dataType->get_item($importField->importItem, $exclude);
-                $excludeDates = $excludeDates ? array_map(function($date) {
-                    return $this->formatDate($date);
-                }, explode($separator, $excludeDates)) : '';
+            [yearly] => Array
+                (
+                    [bydayinterval] => 1
+                )
 
-                $includeDates = $importField->importer->dataType->get_item($importField->importItem, $include);
-                $includeDates = $includeDates ? array_map(function($date) {
-                    return $this->formatDate($date);
-                }, explode($separator, $includeDates)) : '';
+            [until] =>
+        )*/
 
-                if (!empty($excludeDates) && (!$repeats || !$interval || !$frequency)) {
-                    $importField->importer->logger->log('Exclude dates provided, but missing one or more of: Repeats (bool), Interval (int), Frequency (string)');
-                }
+        if ($DG->settings["cf"][$fieldName . "_calendar_start_time"])
+        {
+            $timestamp = $DG->parseDate($DG->dataType->get_item($item, $DG->settings["cf"][$fieldName . "_calendar_start_time"]));
+            $start_time = date("h:i a", $timestamp);
+            $start_date = date("d/m/Y", $timestamp);
 
-                if (!empty($include) && $frequency !== '' && $frequency !== 'dates') {
-                    $importField->importer->logger->log('Include dates provided, but frequency is invalid.');
-                }
+            $timestamp = $DG->parseDate($DG->dataType->get_item($item, $DG->settings["cf"][$fieldName . "_calendar_end_time"]));
+            $end_time = date("h:i a", $timestamp);
+            $end_date = date("d/m/Y", $timestamp);
 
-                $data = [
-                    'calendar_id' => $calendarId,
-                    'start_day' => $this->formatDate($importField->importer->dataType->get_item($importField->importItem, $startTime)),
-                    'start_time' => $this->formatDate($importField->importer->dataType->get_item($importField->importItem, $startTime), 'h:i a'),
-                    'all_day' => get_bool_from_string($importField->importer->dataType->get_item($importField->importItem, $allDay)),
-                    'end_day' => $this->formatDate($importField->importer->dataType->get_item($importField->importItem, $endTime)),
-                    'end_time' => $this->formatDate($importField->importer->dataType->get_item($importField->importItem, $endTime), 'h:i a'),
-                    'repeats' => get_bool_from_string($importField->importer->dataType->get_item($importField->importItem, $repeats)),
-                    'interval' => $importField->importer->dataType->get_item($importField->importItem, $interval),
-                    'freq' => $importField->importer->dataType->get_item($importField->importItem, $frequency),
-                    'until' => $this->formatDate($importField->importer->dataType->get_item($importField->importItem, $until)),
-                    'exclude' => $excludeDates,
-                    'dates' => $includeDates,
-                ];
-            } catch (\Exception $e) {
-                $importField->importer->logger->log('Possible invalid date or time: ' . $e->getMessage());
-            }
+            $data["field_id_" . $fieldId] = array(
+                "calendar_id" => $DG->settings["cf"][$fieldName],
+                "start_day" => $start_date,
+                "start_time" => $start_time,
+                "all_day" => "",
+                "end_day" => $end_date,
+                "end_time" => $end_time,
+                "repeats" => "",
+                "interval" => 1,
+                "freq" => "daily",
+                "until" => ""
+            );
 
-            return $data;
+            $_POST["field_id_" . $fieldId] = $data["field_id_" . $fieldId];
         }
 
-        return [];
-    }
+        // $post["interval"] = "select_dates";
+        // $post["calendar_id"] = $data[ "field_id_" . $field_id ];
+        // $post["calendar_calendar_id"] = $data[ "field_id_" . $field_id ];
+        // $post["type"] = "+";
 
-    private function formatDate(string $dateString, string $responseFormat = 'm/d/Y'): string
-    {
-        // Assume it's already a timestamp
-        if (is_numeric($dateString)) {
-            $timestamp = $dateString;
+        // $post["ampm"] = "pm";
+        // $post["rule_id"] = array( "0" );
+        // $post["type"] = "+";
+        // $post["start_time"] = array();
+        // $post["end_time"] = array();
+        // $post["all_day"] = array( "" );
+        // $post["rule_type"] = array( "+" );
 
-            // Handle timestamps in milliseconds
-            if (strlen($timestamp) === 13) {
-                $timestamp = $timestamp / 1000;
-            }
-        } else {
-            $timestamp = strtotime(str_replace('-', '/', $dateString));
-        }
+        // $post["occurrences"] = array(
+        // 	"date" => array(),
+        // 	"start_time" => array(),
+        // 	"end_time" => array(),
+        // 	"all_day" => array(),
+        // 	"rule_type" => array(),
+        // );
 
-        if ($timestamp === false) {
-            return '';
-        }
+        // $start_field = $DG->settings["cf"][$field . "_calendar_start_time"];
+        // $first = true;
+        // if( $DG->datatype->initialise_sub_item(
+        // 	$item, $start_field, $DG->settings, $field ) ) {
 
-        $date = (new DateTimeImmutable())->setTimestamp($timestamp);
+        // 	while( $subitem = $DG->datatype->get_sub_item(
+        // 		$item, $start_field, $DG->settings, $field ) ) {
 
-        return $date->format($responseFormat);
+        // 			$timestamp = $DG->_parse_date( $subitem );
+        // 			$start_time = date("Hi", $timestamp);
+        // 			$start_date = date("Ymd", $timestamp);
+
+        // 			if( $first ) {
+
+        // 				$post["ampm"] = "pm";
+        // 				$post["start_time"] = array( $start_time );
+        // 				$post["start_date"] = array( $start_date );
+        // 				$post["all_day"] = array( "" );
+        // 				$post["rule_type"] = array( "+" );
+
+        // 				$first = false;
+        // 			}
+
+        // 			$post["occurrences"]["date"][] = $start_date;
+        // 			$post["occurrences"]["start_time"][] = $start_time;
+        // 			$post["occurrences"]["all_day"][] = "";
+        // 			$post["occurrences"]["rule_type"][] = "+";
+
+
+        // 	}
+        // }
+
+        // $end_field = $DG->settings["cf"][$field . "_calendar_end_time"];
+
+        // if( $DG->datatype->initialise_sub_item(
+        // 	$item, $end_field, $DG->settings, $field ) ) {
+
+        // 	$first = true;
+
+        // 	while( $subitem = $DG->datatype->get_sub_item(
+        // 		$item, $end_field, $DG->settings, $field ) ) {
+
+        // 			$timestamp = $DG->_parse_date( $subitem );
+        // 			$end_time = date("Hi", $timestamp);
+        // 			$end_date = date("Ymd", $timestamp);
+
+        // 			if( $first ) {
+
+        // 				$post["end_time"] = array( $end_time );
+        // 				$post["end_date"] = array( $end_date );
+
+        // 				$first = false;
+        // 			}
+
+        // 			$post["occurrences"]["end_time"][] = $end_time;
+
+        // 	}
+        // }
+
+        // $_POST = array_merge( $_POST, $post );
+
+        //print_r( $data ); exit;
+
     }
 }

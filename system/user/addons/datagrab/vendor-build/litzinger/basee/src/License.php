@@ -6,13 +6,14 @@ namespace BoldMinded\DataGrab\Dependency\Litzinger\Basee;
  * @package     ExpressionEngine
  * @category    Basee
  * @author      Brian Litzinger
+ * @copyright   Copyright (c) 2022 - BoldMinded, LLC
  * @link        https://github.com/litzinger/basee
  * @license     MIT
  */
 class License
 {
     const DEBUG = \false;
-    const STATUSES = ['invalid', 'update_available', 'expired', 'expiring_soon'];
+    const STATUSES = ['invalid', 'update_available', 'expired'];
     const BANNER_MESSAGE = 'Your license is available at <a href="%s">boldminded.com</a>, or <a href="https://expressionengine.com">expressionengine.com</a>. If you purchased from expressionengine.com, be sure to visit <a href="https://boldminded.com/claim">boldminded.com/claim</a> to add the license to your account.';
     /**
      * @var string
@@ -101,15 +102,21 @@ class License
      * @param string $status
      * @return string
      */
-    /**
-     * @param string $status
-     * @return string
-     */
     public function displayValidationMessage(string $status)
     {
+        // @todo get appropriate styles and markup for EE 5
+        if (App::isLtEE6()) {
+            return '';
+        }
         $scripts = [];
+        if ($status === 'invalid') {
+            $scripts[] = self::getInvalidNotice($this->addonShortName, $this->addonName, self::$licenseAccountUrl, $status);
+        }
         if ($status === 'update_available') {
             $scripts[] = self::getUpdateAvailableNotice($this->addonShortName, self::$licenseAccountUrl, $status);
+        }
+        if ($status === 'expired') {
+            $scripts[] = self::getExpiredNotice($this->addonShortName, self::$licenseAccountUrl, $status);
         }
         if (isset(ee()->cp)) {
             ee()->cp->add_to_foot('<script type="text/javascript">$(function(){' . \preg_replace("/\\s+/", " ", \implode('', $scripts)) . '});</script>');
@@ -119,15 +126,61 @@ class License
     }
     /**
      * @param string $addonShortName
+     * @param string $addonName
      * @param string $licenseAccountUrl
      * @param string $status
      * @return string
      */
-    public static function getUpdateAvailableNotice(string $addonShortName, string $licenseAccountUrl)
+    public static function getInvalidNotice(string $addonShortName, string $addonName, string $licenseAccountUrl, string $status = '')
     {
-        return '$(\'div[data-addon="' . $addonShortName . '"] .add-on-card__text\').append(\'<p class="license-status-badge license-status-update_available"><b>Update Available</b></p>\');
-                if (window.location.href.indexOf(\'' . $addonShortName . '\') !== -1 && $(\'body.add-on-layout .main-nav__title .license-status-badge\').length === 0) {
-                    $(\'body.add-on-layout .main-nav__title\').css(\'position\', \'relative\').append(\'<a class="license-status-badge license-status-update_available" href="' . $licenseAccountUrl . '" target="_blank">Update Available</a>\').children(\'h1\').css({ \'display\': \'inline-block\', \'vertical-align\': \'middle\' });
+        return '$(\'div[data-addon="' . $addonShortName . '"]\').append(\'' . self::getRibbon('Unlicensed', $status) . '\');
+                $(\'.global-alerts\').append(\'<div class="app-notice-license app-notice app-notice--banner app-notice---error" style="display: flex;"><div class="app-notice__tag"><span class="app-notice__icon"></span></div><div class="app-notice__content"><p>Unlicensed Add-on: <b>' . $addonName . '</b> does not have a valid license.</p><p>' . \sprintf(self::BANNER_MESSAGE, $licenseAccountUrl) . '</p></p></div><a href="#" class="app-notice__controls js-notice-dismiss"><span class="app-notice__dismiss"></span><span class="hidden">close</span></a></div>\');';
+    }
+    /**
+     * @param string $addonShortName
+     * @param string $addonName
+     * @param string $licenseAccountUrl
+     * @param string $status
+     * @return string
+     */
+    public static function getExpiredTrialNotice(string $addonShortName, string $addonName, string $licenseAccountUrl, string $status = 'expired')
+    {
+        return '$(\'div[data-addon="' . $addonShortName . '"]\').append(\'' . self::getRibbon('Unlicensed', $status) . '\');
+                $(\'.global-alerts\').append(\'<div class="app-notice-license app-notice app-notice--banner app-notice---error" style="display: flex;"><div class="app-notice__tag"><span class="app-notice__icon"></span></div><div class="app-notice__content"><p>Trial Expired: <b>' . $addonName . '</b>. You will need to purchase a full license from ' . \sprintf('<a href="%s">boldminded.com</a>', $licenseAccountUrl) . ' to continue using ' . $addonName . '.</p></div><a href="#" class="app-notice__controls js-notice-dismiss"><span class="app-notice__dismiss"></span><span class="hidden">close</span></a></div>\');';
+    }
+    /**
+     * @param string $addonShortName
+     * @param string $licenseAccountUrl
+     * @param string $status
+     * @return string
+     */
+    public static function getUpdateAvailableNotice(string $addonShortName, string $licenseAccountUrl, string $status = '')
+    {
+        return '$(\'div[data-addon="' . $addonShortName . '"]\').append(\'' . self::getRibbon('Update Available', $status) . '\');
+                if (window.location.href.indexOf(\'' . $addonShortName . '\') !== -1) {
+                    $(\'body.add-on-layout .main-nav__title\').css(\'position\', \'relative\').append(\'<a style="display:inline-block;vertical-align:middle;margin-left:15px;border: 2px solid #39d;background-color:#fff;font-weight:bold;color: #39d;padding: 2px 10px 1px 10px;border-radius: 5px;font-size: 12px;vertical-align: middle;" href="' . $licenseAccountUrl . '" target="_blank">Update Available</a>\').children(\'h1\').css({ \'display\': \'inline-block\', \'vertical-align\': \'middle\' });
                 };';
+    }
+    /**
+     * @param string $addonShortName
+     * @param string $licenseAccountUrl
+     * @param string $status
+     * @return string
+     */
+    public static function getExpiredNotice(string $addonShortName, string $licenseAccountUrl, string $status = '')
+    {
+        return '$(\'div[data-addon="' . $addonShortName . '"]\').append(\'' . self::getRibbon('Expired', $status) . '\');
+                if (window.location.href.indexOf(\'' . $addonShortName . '\') !== -1) {
+                    $(\'body.add-on-layout .main-nav__title\').css(\'position\', \'relative\').append(\'<a style="display:inline-block;vertical-align:middle;margin-left:15px;background-color:#e82;font-weight:bold;color: #fff;padding: 2px 10px 1px 10px;border-radius: 5px;font-size: 12px;vertical-align: middle;" href="' . $licenseAccountUrl . '" target="_blank">License Expired</a>\').children(\'h1\').css({ \'display\':\'inline-block\', \'vertical-align\':\'middle\' });
+                }';
+    }
+    /**
+     * @param string $message
+     * @param string $status
+     * @return string
+     */
+    public static function getRibbon(string $message, string $status)
+    {
+        return '<div class="corner-ribbon-wrap"><div class="corner-ribbon top-left ' . $status . ' shadow">' . $message . '</div></div>';
     }
 }

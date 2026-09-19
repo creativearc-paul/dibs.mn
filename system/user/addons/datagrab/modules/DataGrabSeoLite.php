@@ -1,7 +1,5 @@
 <?php
 
-use BoldMinded\DataGrab\Service\Importer;
-
 class DataGrabSeoLite extends AbstractModule implements ModuleInterface
 {
     public function getName(): string
@@ -14,7 +12,7 @@ class DataGrabSeoLite extends AbstractModule implements ModuleInterface
         return 'SEO Lite';
     }
 
-    public function displayConfiguration(Importer $importer, array $data = []): array
+    public function displayConfiguration(Datagrab_model $DG, array $data = []): array
     {
         $options = [
             '' => 'Create or Update', // Default, also backwards compatible
@@ -42,7 +40,7 @@ class DataGrabSeoLite extends AbstractModule implements ModuleInterface
         ];
     }
 
-    public function saveConfiguration(Importer $importer): array
+    public function saveConfiguration(Datagrab_model $DG): array
     {
         $data = ee()->input->post($this->getName());
 
@@ -54,7 +52,7 @@ class DataGrabSeoLite extends AbstractModule implements ModuleInterface
         ];
     }
 
-    public function handle(Importer $importer, array &$data = [], array $item = [], array $custom_fields = [], string $action = '')
+    public function handle(Datagrab_model $DG, array &$data = [], array $item = [], array $custom_fields = [], string $action = '')
     {
         $onAction = $this->getSettingValue('execute_on_action');
 
@@ -70,8 +68,8 @@ class DataGrabSeoLite extends AbstractModule implements ModuleInterface
         // Not 100% sure I understand this, but core EE is checking for this field and it has been in DG's core for a long time.
         $data["cp_call"] = true;
 
-        $data["seo_lite__seo_lite_title"] = $importer->dataType->get_item($item, $this->getSettingValue('seo_lite_title'));
-        $data["seo_lite__seo_lite_keywords"] = $importer->dataType->get_item($item, $this->getSettingValue('seo_lite_keywords'));
-        $data["seo_lite__seo_lite_description"] = $importer->dataType->get_item($item, $this->getSettingValue('seo_lite_description'));
+        $data["seo_lite__seo_lite_title"] = $DG->dataType->get_item($item, $this->getSettingValue('seo_lite_title'));
+        $data["seo_lite__seo_lite_keywords"] = $DG->dataType->get_item($item, $this->getSettingValue('seo_lite_keywords'));
+        $data["seo_lite__seo_lite_description"] = $DG->dataType->get_item($item, $this->getSettingValue('seo_lite_description'));
     }
 }

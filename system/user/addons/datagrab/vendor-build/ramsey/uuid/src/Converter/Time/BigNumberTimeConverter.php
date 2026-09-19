@@ -17,16 +17,19 @@ use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Math\BrickMathCalculator;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Type\Hexadecimal;
 use BoldMinded\DataGrab\Dependency\Ramsey\Uuid\Type\Time;
 /**
- * Previously used to integrate moontoast/math as a bignum arithmetic library, BigNumberTimeConverter is deprecated in
- * favor of GenericTimeConverter
+ * Previously used to integrate moontoast/math as a bignum arithmetic library,
+ * BigNumberTimeConverter is deprecated in favor of GenericTimeConverter
  *
- * @deprecated Please transition to {@see GenericTimeConverter}.
+ * @deprecated Transition to {@see GenericTimeConverter}.
  *
- * @immutable
+ * @psalm-immutable
  */
 class BigNumberTimeConverter implements TimeConverterInterface
 {
-    private TimeConverterInterface $converter;
+    /**
+     * @var TimeConverterInterface
+     */
+    private $converter;
     public function __construct()
     {
         $this->converter = new GenericTimeConverter(new BrickMathCalculator());

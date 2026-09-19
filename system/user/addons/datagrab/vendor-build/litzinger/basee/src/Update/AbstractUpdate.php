@@ -6,6 +6,7 @@ namespace BoldMinded\DataGrab\Dependency\Litzinger\Basee\Update;
  * @package     ExpressionEngine
  * @category    Basee
  * @author      Brian Litzinger
+ * @copyright   Copyright (c) 2022 - Brian Litzinger
  * @link        https://github.com/litzinger/basee
  * @license     MIT
  */
@@ -14,11 +15,11 @@ abstract class AbstractUpdate
     /**
      * @var array
      */
-    private $hookTemplate = [];
+    private $hookTemplate = array();
     /**
      * @param array $hooks
      */
-    protected function addHooks($hooks = [])
+    protected function addHooks($hooks = array())
     {
         if (empty($hooks)) {
             return;
@@ -27,7 +28,7 @@ abstract class AbstractUpdate
         foreach ($hooks as $hook) {
             $hook = \array_merge($this->getHookTemplate(), $hook);
             /** @var \CI_DB_result $query */
-            $query = ee()->db->get_where('extensions', ['hook' => $hook['hook'], 'class' => $hook['class'], 'priority' => $hook['priority']]);
+            $query = ee()->db->get_where('extensions', array('hook' => $hook['hook'], 'class' => $hook['class']));
             if ($query->num_rows() == 0) {
                 ee()->db->insert('extensions', $hook);
             }
@@ -37,7 +38,7 @@ abstract class AbstractUpdate
      * @param array $actions
      * @throws \Exception
      */
-    protected function addActions($actions = [])
+    protected function addActions($actions = array())
     {
         if (empty($actions)) {
             return;
@@ -47,7 +48,7 @@ abstract class AbstractUpdate
                 throw new \Exception('Action keys are missing.');
             }
             /** @var \CI_DB_result $query */
-            $query = ee()->db->get_where('actions', ['method' => $action['method'], 'class' => $action['class']]);
+            $query = ee()->db->get_where('actions', array('method' => $action['method'], 'class' => $action['class']));
             if ($query->num_rows() == 0) {
                 ee()->db->insert('actions', $action);
             }
@@ -57,7 +58,7 @@ abstract class AbstractUpdate
      * @param $class
      * @param array $hooks
      */
-    protected function removeHooks($class, $hooks = [])
+    protected function removeHooks($class, $hooks = array())
     {
         if (empty($hooks)) {
             return;
@@ -68,7 +69,7 @@ abstract class AbstractUpdate
      * @param $class
      * @param array $methods
      */
-    protected function removeActions($class, $methods = [])
+    protected function removeActions($class, $methods = array())
     {
         if (empty($methods)) {
             return;

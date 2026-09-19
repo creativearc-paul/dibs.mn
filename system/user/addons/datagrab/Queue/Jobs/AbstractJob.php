@@ -80,25 +80,18 @@ class AbstractJob
         }
 
         // Fetch import settings
-        $import = ee('Model')->get('datagrab:Import')
-            ->filter('id', $importId)
-            ->first();
+        $query = ee('db')
+            ->where('id', $importId)
+            ->get('datagrab');
 
-        if (!$import) {
-            ee('datagrab:Importer')->logger->log('Import aborted. Requested Import ID not found.');
+        if ($query->num_rows() == 0) {
+            ee()->datagrab->logger->log('Import aborted. Requested Import ID not found.');
 
             return false;
         }
 
-        $this->settings = json_decode($import->settings, true);
-
-        $this->settings['import']['id'] = $import->id;
-        $this->settings['import']['passkey'] = $import->passkey;
-        $this->settings['import']['site_id'] = $import->site_id;
-
-        $this->settings['import']['id'] = $import->id;
-        $this->settings['import']['passkey'] = $import->passkey;
-        $this->settings['import']['site_id'] = $import->site_id;
+        $row = $query->row_array();
+        $this->settings = unserialize($row['settings']);
 
         static::$settingsCache = $this->settings;
 

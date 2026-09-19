@@ -1,9 +1,5 @@
 <?php
 
-use BoldMinded\DataGrab\FieldTypes\AbstractFieldType;
-use BoldMinded\DataGrab\FieldTypes\ImportField;
-use BoldMinded\DataGrab\Service\Importer;
-
 /**
  * DataGrab Date fieldtype class
  *
@@ -13,87 +9,17 @@ use BoldMinded\DataGrab\Service\Importer;
  */
 class Datagrab_date extends AbstractFieldType
 {
-    public function register_setting(string $fieldName): array
+    public function prepare_post_data(Datagrab_model $DG, array $item = [], int $fieldId = 0, string $fieldName = '', array &$data = [], int $updateEntryId = 0)
     {
-        return [
-            $fieldName => [
-                'value',
-                'localized',
-            ],
-        ];
-    }
-
-    public function display_configuration(Importer $importer, string $fieldName, string $fieldLabel, string $fieldType, bool $fieldRequired = false, array $data = []): array
-    {
-        $config = [];
-        $config['label'] = $this->displayLabel($fieldLabel, $fieldName, $fieldRequired, 'date');
-        $fieldSettings = $data['field_settings'][$fieldName] ?? [];
-        $savedFieldValues = $this->getSavedFieldValues($data, $fieldName);
-
-        $fieldSets = ee('View')
-            ->make('ee:_shared/form/section')
-            ->render([
-                'name' => 'fieldset_group',
-                'settings' => $this->getFormFields(
-                    $fieldName,
-                    $fieldSettings,
-                    $data,
-                    $savedFieldValues,
-                )
-            ]);
-
-        $config['value'] = $fieldSets;
-
-        return $config;
-    }
-
-    public function getFormFields(
-        string $fieldName,
-        array $fieldSettings,
-        array $data = [],
-        array $savedFieldValues = [],
-        string $contentType = 'channel',
-    ): array {
-        $fieldOptions[] = [
-            'title' => 'Import Value',
-            'desc' => '',
-            'fields' => [
-                $fieldName . '[value]' => [
-                    'type' => 'dropdown',
-                    'choices' => $data['data_fields'],
-                    'value' => $savedFieldValues['value'] ?? '',
-                ]
-            ]
-        ];
-
-        // Grid Date columns don't offer or display the "Localized / Fixed" radio options.
-        if ($contentType !== 'grid') {
-            $fieldOptions[] = [
-                'title' => 'Localized',
-                'desc' => '',
-                'fields' => [
-                    $fieldName . '[localized]' => [
-                        'type' => 'dropdown',
-                        'choices' => ['No', 'Yes'],
-                        'value' => $savedFieldValues['localized'] ?? 0,
-                    ]
-                ]
-            ];
+        if ($DG->dataType->get_item($item, $DG->settings["cf"][$fieldName]) != "") {
+            $data["field_id_" . $fieldId] = $DG->parseDate(
+                $DG->dataType->get_item($item, $DG->settings["cf"][$fieldName])
+            );
+            $data["field_id_" . $fieldId] -= $DG->settings["config"]["offset"];
+        } else {
+            $data["field_id_" . $fieldId] = "";
         }
 
-        return $fieldOptions;
-    }
-
-    public function preparePostData(ImportField $importField): string
-    {
-        $data = '';
-        $offset = $importField->importer->settings['config']['offset'] ?? 0;
-
-        if ($importField->propertyValue !== '') {
-            $data = $importField->importer->parseDate($importField->propertyValue);
-            $data -= $offset;
-        }
-
-        return $data;
+        $data["field_offset_" . $fieldId] = 'n';
     }
 }

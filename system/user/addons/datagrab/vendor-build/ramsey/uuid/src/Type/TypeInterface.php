@@ -17,16 +17,10 @@ use Serializable;
 /**
  * TypeInterface ensures consistency in typed values returned by ramsey/uuid
  *
- * @immutable
+ * @psalm-immutable
  */
 interface TypeInterface extends JsonSerializable, Serializable
 {
-    /**
-     * @pure
-     */
     public function toString() : string;
-    /**
-     * @pure
-     */
     public function __toString() : string;
 }

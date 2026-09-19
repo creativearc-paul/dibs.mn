@@ -1,8 +1,5 @@
 <?php
 
-use BoldMinded\DataGrab\DataTypes\AbstractDataType;
-use BoldMinded\DataGrab\Dependency\Cake\Utility\Hash;
-
 /**
  * DataGrab XML import class
  *
@@ -14,22 +11,26 @@ use BoldMinded\DataGrab\Dependency\Cake\Utility\Hash;
  */
 class Datagrab_xml extends AbstractDataType
 {
-    public string $type = 'XML';
-
-    public array $datatype_info = [
+    public $datatype_info = [
         'name' => 'XML',
-        'version' => '2.0',
+        'version' => '1.0',
         'description' => 'Import data from an XML formatted file/feed/api response',
         'allow_comments' => true,
         'allow_subloop' => true
     ];
 
-    public array $settings = [
-        'filename' => '',
-        'path' => '',
-        'importId' => 0,
+    public $settings = [
+        "filename" => "",
+        "path" => ""
     ];
 
+    public $items;
+    public $sub_item_ptr;
+
+    /**
+     * @param array $values
+     * @return array[]
+     */
     public function settings_form(array $values = []): array
     {
         return [
@@ -46,7 +47,7 @@ class Datagrab_xml extends AbstractDataType
             ],
             [
                 'title' => 'XML path',
-                'desc' => 'The path within the XML to the element you want to import (eg, <code>/rss/channel/item</code>). If importing an RSS/ATOM feed, leave blank and it will try and guess. <strong>Note: this is not the path to the file.</strong>',
+                'desc' => 'The path within the XML to the element you want to import (eg, /rss/channel/item). If importing an RSS/ATOM feed, leave blank and it will try and guess. <strong>Note: this is not the path to the file.</strong>',
                 'fields' => [
                     'path' => [
                         'required' => true,
@@ -58,182 +59,238 @@ class Datagrab_xml extends AbstractDataType
         ];
     }
 
-    public function getItems(): array
-    {
-        return $this->items;
-    }
-
-    public function fetch(string $data = '')
+    public function fetch()
     {
         try {
-            if ($data !== '') {
-                $xmlString = $data;
-            } else {
-                if (!$this->getFilename()) {
-                    $this->addError('You must supply a filename/url.');
-                    return -1;
-                }
-
-                $xmlString = $this->curlFetch($this->getFilename(), $this->settings['importId']);
-            }
+            $xml = $this->_curl_fetch($this->getFilename());
         } catch (Exception $exception) {
             return -1;
         }
 
-        if ($xmlString === false) {
-            $this->addError('Cannot open file/url: ' . $this->settings['filename']);
+        if ($xml === false) {
+            $this->addError('Cannot open file/url: ' . $this->settings["filename"]);
             return -1;
         }
 
-        // Turn it into the new dot notation for searching purposes Hash::get()
-        $path = ltrim(str_replace('/', '.', $this->settings['path'] ?? ''), '.');
+        ee()->load->library('xmlparser');
+        $xml_obj = ee()->xmlparser->parse_xml($xml);
 
-        try {
-            // Allow parsing errors to be caught
-            libxml_use_internal_errors(true);
+        if ($xml_obj === false) {
+            $this->addError('Cannot parse the XML from file/url: ' . $this->getFilename());
+            return -1;
+        }
 
-            $array = $this->xmlToStructuredArray($xmlString, $path);
-        } catch (Exception $exception) {
-            if ($parseErrors = libxml_get_errors()) {
-                $this->addError(sprintf(
-                    'Invalid XML: %s: Line #%s.',
-                    $parseErrors[0]->message,
-                    $parseErrors[0]->line
-                ));
-            } else {
-                $this->addError(sprintf(
-                    'Invalid XML: %s.',
-                    $exception->getMessage()
-                ));
+        // Try to guess item path
+        if ($this->settings["path"] == "") {
+            if ($xml_obj->tag == "feed") {
+                // ATOM feed
+                $this->settings["path"] = '/feed/entry';
+            } elseif ($xml_obj->tag == "rss") {
+                // RSS feed
+                $this->settings["path"] = '/rss/channel/item';
             }
-
-            return -1;
         }
 
-        if (!is_array($array)) {
-            $this->addError(sprintf(
-                'Invalid XML: %s.',
-                json_encode($array)
-            ));
-
-            return -1;
-        }
-
-        $this->flatten($array, $path);
+        $this->items = [];
+        $this->_fetch_xml($xml_obj, $this->settings["path"], $this->items);
 
         if (empty($this->items)) {
             $this->addError(sprintf('No items were found. Please check file type, url/path to the file, and XML path (%s) to the entries are correct.', $this->settings["path"]));
             return -1;
         }
-
-        return 1;
     }
 
-    protected function flatten(array $array, string $path): void
+    public function next()
     {
-        if (!$path) {
-            $firstKey = array_key_first($array);
-
-            if ($firstKey === 'feed') {
-                // ATOM feed
-                $path = 'feed.entry';
-            } elseif ($firstKey === 'rss') {
-                // RSS feed
-                $path = 'rss.channel.item';
-            } else {
-                $this->addError('Cannot find valid XML path to import from.');
-            }
+        // PHP 8.1 change
+        if (!is_array($this->items)) {
+            $this->items = (array) $this->items;
         }
 
-        $this->items = Hash::get($array, $path);
+        if (empty($this->items)) {
+            return null;
+        }
 
-        foreach ($this->items as $item) {
-            $flatMappingPaths = [];
-            $flatItem = Hash::flatten($item, '/');
+        $item = current($this->items);
+        next($this->items);
 
-            foreach ($flatItem as $nodePath => $value) {
-                $nodePath = preg_replace('/^(\d+\/)/', '', $nodePath);
+        return $item;
+    }
 
-                if (!isset($flatMappingPaths[$nodePath])) {
-                    $flatMappingPaths[$nodePath] = $value;
+    public function fetch_columns(): array
+    {
+        try {
+            $this->fetch();
+            $columns = $this->next();
+
+            while ($item = $this->next()) {
+                $columns = array_merge($columns, $item);
+            }
+
+            if (!is_array($columns)) {
+                $this->addError('Cannot find any data. Is the XML path correct? Is it a valid XML file? Run it through an <a href="https://www.w3schools.com/xml/xml_validator.asp">XML validator</a>');
+                return [];
+            }
+
+            $titles = [];
+            foreach ($columns as $idx => $title) {
+                if (substr($idx, -1, 1) != "#") {
+                    if (strlen($title) > 32) {
+                        $title = substr(htmlspecialchars($title), 0, 32) . "...";
+                    }
+                    $titles[$idx] = $idx . " - eg, " . $title;
                 }
             }
 
-            $this->itemsFlat[] = $flatMappingPaths;
+            return $titles;
+        } catch (Error $error) {
+            $this->addError($error->getMessage());
         }
+
+        return [];
     }
 
-    /**
-     * Normally transforming an xml string into an array improperly nests
-     * child elements. Duplicate keys are not distinct, they're grouped together.
-     * This preserves the array order and maintains the hierarchical structure.
-     */
-    protected function xmlToStructuredArray(string $xmlString, string $basePath): array {
-        $xml = new SimpleXMLElement($xmlString);
-
-        // Convert dot notation basePath (e.g., "root.entry.something.something") to XPath
-        $xpath = '/' . str_replace('.', '/', $basePath);
-
-        // Use XPath to locate the correct node
-        $nodes = $xml->xpath($xpath);
-
-        if (!$nodes) {
-            return []; // Return empty array if no matching nodes are found
-        }
-
-        $entries = [];
-        foreach ($nodes as $node) {
-            $entries[] = $this->simpleXmlToArray($node);
-        }
-
-        // Wrap the extracted data in the correct hierarchy
-        return $this->wrapInHierarchy(explode('.', $basePath), $entries);
+    public function initialise_sub_item($item, $id, $config, $field)
+    {
+        $this->sub_item_ptr = 0;
+        return true;
     }
 
-    protected function simpleXmlToArray(SimpleXMLElement $xml): array {
-        $result = [];
+    public function get_sub_item($item, $id, $config, $field, array $column = [])
+    {
+        $this->sub_item_ptr++;
+        $no_elements = $this->get_item($item, $id . "#");
 
-        foreach ($xml->children() as $child) {
-            $grandChildren = $child->children();
-            $count = count($grandChildren);
-            if (!empty($grandChildren) && $count > 0) {
-                $result[] = [$child->getName() .'/' . self::PARENT_NODE_NAME => sprintf(
-                    $count === 1
-                        ? self::INCLUDES_CHILDREN_LABEL
-                        : self::INCLUDES_CHILDREN_LABEL_PLURAL
-                    , count($grandChildren)
-                )];
+        if ($no_elements === false) {
+            $no_elements = 99;
+        }
+
+        if ($no_elements == "") {
+            $no_elements = 1;
+        }
+
+        if ($this->sub_item_ptr > $no_elements) {
+            return false;
+        }
+
+        $new_id = $id;
+
+        if ($this->sub_item_ptr > 1) {
+            if (strpos($id, '@')) {
+                $parts = explode("@", $id);
+                $new_id = $parts[0] . '#' . $this->sub_item_ptr . '@' . $parts[1];
+            } else {
+                $new_id = $id . '#' . $this->sub_item_ptr;
+            }
+        }
+
+        return $this->get_item($item, $new_id);
+    }
+
+    private function _fetch_xml($x, $search, &$items, $path = "", $element = 0, $in_element = false, $subpath = "")
+    {
+        $path = $path . "/" . $x->tag;
+
+        if ($path == $search) {
+            // Path matches exactly our search element - we are in a new item
+            $element++;
+            $items[$element] = [];
+            $subpath = '';
+
+            if (is_array($x->attributes)) {
+                foreach ($x->attributes as $attr_key => $attr_value) {
+                    $items[$element][$subpath . "@" . $attr_key] = $attr_value;
+                }
+            }
+            $in_element = true;
+        } elseif ($str = strstr($path, $search)) {
+            // We are within an existing item  - get xpath of subcomponent
+            $subpath = substr($str, strlen($search) + 1);
+
+            if (!isset($items[$element][$subpath . "#"])) {
+                $items[$element][$subpath . "#"] = 0;
             }
 
-            // Capture attributes
-            //foreach ($child->attributes() as $attrName => $attrValue) {
-            //    $result[] = ["@{$attrName}" => (string) $attrValue];
-            //}
+            $count = $items[$element][$subpath . "#"]++;
 
-            $name = $child->getName();
-            $value = trim((string) $child);
-
-            // If the node has children, recursively parse it
-            if ($child->count() > 0) {
-                $value = $this->simpleXmlToArray($child);
+            if (isset($items[$element][$subpath])) {
+                $subpath .= "#" . ($count + 1);
             }
 
-            // Maintain order and prevent merging of duplicate keys
-            $result[] = [$name => $value];
+        } else {
+            $in_element = false;
         }
 
-        return $result;
+        if (gettype($x->children) != NULL && ($x->children) == 0) {
+            // Element has children ie, is not a parent element
+            if ($in_element) {
+                // If within an item, add to its array
+                $items[$element][$subpath] = $x->value;
+            }
+        } else {
+            // Loop over all child elements...
+            foreach ($x->children as $value) {
+                // ...and recurse through xml structure
+                $element = $this->_fetch_xml($value, $search, $items, $path, $element, $in_element, $subpath);
+            }
+        }
+
+        // Add attributes
+        if ($in_element && is_array($x->attributes)) {
+            foreach ($x->attributes as $attr_key => $attr_value) {
+                $items[$element][$subpath . "@" . $attr_key] = $attr_value;
+            }
+        }
+
+        return $element;
     }
 
-    protected function wrapInHierarchy(array $pathParts, array $entries) {
-        $nested = $entries;
+    private function _curl_fetch($url)
+    {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_FRESH_CONNECT, 1);
 
-        // Reconstruct hierarchy from the base path
-        while (!empty($pathParts)) {
-            $key = array_pop($pathParts);
-            $nested = [$key => $nested];
+        $data = curl_exec($ch);
+
+        curl_close($ch);
+
+        if (!$data) {
+            $this->addError('cURL Error: ' . curl_error($ch));
         }
 
-        return $nested;
+        return $data;
+    }
+
+    private function _fsockopen_fetch($url)
+    {
+        $target = parse_url($url);
+
+        $data = '';
+
+        $fp = fsockopen($target['host'], 80, $error_num, $error_str, 8);
+
+        if (is_resource($fp)) {
+            fputs($fp, "GET {$url} HTTP/1.0\r\n");
+            fputs($fp, "Host: {$target['host']}\r\n");
+            fputs($fp, "User-Agent: EE/xmlgrab PHP/" . phpversion() . "\r\n\r\n");
+
+            $headers = true;
+
+            while (!feof($fp)) {
+                $line = fgets($fp, 4096);
+
+                if ($headers === false) {
+                    $data .= $line;
+                } elseif (trim($line) == '') {
+                    $headers = false;
+                }
+            }
+
+            fclose($fp);
+        }
+
+        return $data;
     }
 }
